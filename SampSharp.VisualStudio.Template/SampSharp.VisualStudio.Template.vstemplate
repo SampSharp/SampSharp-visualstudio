@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VSTemplate Version="3.0.0" Type="Project" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005" xmlns:sdk="http://schemas.microsoft.com/developer/vstemplate-sdkextension/2010">
+  <TemplateData>
+    <Name>SampSharp GameMode</Name>
+    <Description>A GameMode for SampSharp.</Description>
+    <Icon>SampSharp.VisualStudio.Template.ico</Icon>
+    <ProjectType>CSharp</ProjectType>
+    <RequiredFrameworkVersion>4.5</RequiredFrameworkVersion>
+    <SortOrder>1000</SortOrder>
+    <TemplateID>58a677b3-62c1-46c3-99f7-6ae1f71374be</TemplateID>
+    <CreateNewFolder>true</CreateNewFolder>
+    <DefaultName>SampSharpGameMode</DefaultName>
+    <ProvideDefaultName>true</ProvideDefaultName>
+  </TemplateData>
+  <TemplateContent>
+    <Project File="ProjectTemplate.csproj" ReplaceParameters="true">
+      <ProjectItem ReplaceParameters="true" TargetFileName="Properties\AssemblyInfo.cs">AssemblyInfo.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="true" OpenInEditor="true">GameMode.cs</ProjectItem>
+        <ProjectItem>SampSharp.GameMode.0.7.6107.37493-alpha.nupkg</ProjectItem>
+    </Project>
+  </TemplateContent>
+  <WizardExtension>
+    <Assembly>NuGet.VisualStudio.Interop, Version=1.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</Assembly>
+    <FullClassName>NuGet.VisualStudio.TemplateWizard</FullClassName>
+  </WizardExtension>
+    <WizardData>
+        <packages repository="template">
+            <package id="SampSharp.GameMode" version="0.7.6107.37493-alpha" />
+        </packages>
+    </WizardData>
+</VSTemplate>
