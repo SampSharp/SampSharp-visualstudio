@@ -209,50 +209,61 @@ namespace SampSharp.VisualStudio.Debuggers
 		    }
 
 		    Task.Run(() =>
-			{
-			   
+		    {
 
-                var proc = Process.Start(new ProcessStartInfo
-				{
-					FileName = serverPath,
-					WorkingDirectory = serverDir
-                });
+		        var proc = Process.Start(new ProcessStartInfo
+		        {
+		            FileName = serverPath,
+		            WorkingDirectory = serverDir,
+		            UseShellExecute = false
+		        });
 
-				Debug.WriteLine(proc);
-				// Trigger that the app is now running for whomever might be waiting for that signal
-				_waiter.Set();
-			});
+		        Debug.WriteLine(proc);
+		        // Trigger that the app is now running for whomever might be waiting for that signal
+		        _waiter.Set();
+		    });
 
-			Session = new SoftDebuggerSession();
+            Session = new SoftDebuggerSession();
 			Session.TargetReady += (sender, eventArgs) =>
 			{
+                Log($"TargetReady {eventArgs}");
 				var activeThread = Session.ActiveThread;
 				ThreadManager.Add(activeThread, new MonoThread(this, activeThread));
-//                Session.Stop();
 			};
 			Session.ExceptionHandler = exception => true;
-			Session.TargetExited += (sender, x) =>
+		    Session.TargetExited += (sender, x) =>
+		    {
+		        Log($"TargetExited {x}");
+		        Send(new SampSharpDestroyEvent((uint?) x.ExitCode ?? 0), SampSharpDestroyEvent.Iid, null);
+		    };
+			Session.TargetUnhandledException += (sender, x) => Log("TargetUnhandledException" + x.Backtrace.ToString());
+			Session.LogWriter = (stderr, text) => Log($"LogWriter {text}");
+			Session.OutputWriter = (stderr, text) => Log($"OutputWriter {text}");
+		    Session.TargetThreadStarted += (sender, x) =>
+		    {
+		        Log($"TargetThreadStarted {x}");
+		        ThreadManager.Add(x.Thread, new MonoThread(this, x.Thread));
+		    };
+			Session.TargetThreadStopped += (sender, x) =>
 			{
-				Send(new SampSharpDestroyEvent((uint?)x.ExitCode ?? 0), SampSharpDestroyEvent.Iid, null);
+			    Log($"TargetThreadStopped {x}");
+                ThreadManager.Remove(x.Thread);
 			};
-			Session.TargetUnhandledException += (sender, x) => Log(x.Backtrace.ToString());
-			Session.LogWriter = (stderr, text) => Console.WriteLine(text);
-			Session.OutputWriter = (stderr, text) => Console.WriteLine(text);
-			Session.TargetThreadStarted += (sender, x) => ThreadManager.Add(x.Thread, new MonoThread(this, x.Thread));
-			Session.TargetThreadStopped += (sender, x) => { ThreadManager.Remove(x.Thread); };
-			Session.TargetStopped += (sender, x) => Console.WriteLine(x.Type);
-			Session.TargetStarted += (sender, x) => Console.WriteLine();
-			Session.TargetSignaled += (sender, x) => Console.WriteLine(x.Type);
-			Session.TargetInterrupted += (sender, x) => Console.WriteLine(x.Type);
+			Session.TargetStopped += (sender, x) => Log($"TargetStopped {x}");
+			Session.TargetStarted += (sender, x) => Log($"TargetStarted {x}");
+			Session.TargetSignaled += (sender, x) => Log($"TargetSignaled {x}");
+			Session.TargetInterrupted += (sender, x) => Log($"TargetInterrupted {x}");
 			Session.TargetExceptionThrown += (sender, x) =>
 			{
-//                var catchpoint = x.BreakEvent as Catchpoint;
-				Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnum(new IDebugBoundBreakpoint2[0])), MonoStepCompleteEvent.Iid,
+			    Log($"TargetStopped {x}");
+                Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnum(new IDebugBoundBreakpoint2[0])), MonoStepCompleteEvent.Iid,
 					ThreadManager[x.Thread]);
 			};
 			Session.TargetHitBreakpoint += (sender, x) =>
 			{
-				var breakpoint = x.BreakEvent as Breakpoint;
+			    Log($"TargetStopped {x}");
+                
+                var breakpoint = x.BreakEvent as Breakpoint;
 				var pendingBreakpoint = _breakpointManager[breakpoint];
 			    if (pendingBreakpoint != null)
 			        Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnum(pendingBreakpoint.BoundBreakpoints)),
@@ -262,8 +273,8 @@ namespace SampSharp.VisualStudio.Debuggers
 		    _processId = new AD_PROCESS_ID
 		    {
 		        ProcessIdType = (uint) enum_AD_PROCESS_ID.AD_PROCESS_ID_GUID,
-		        guidProcessId = Guid.NewGuid()
-		    };
+		        guidProcessId = Guid.NewGuid(),
+            };
 
 		    EngineUtils.CheckOk(port.GetProcess(_processId, out process));
 			Callback = callback;
@@ -292,6 +303,8 @@ namespace SampSharp.VisualStudio.Debuggers
 
 		public int TerminateProcess(IDebugProcess2 pProcess)
 		{
+            Log("TerminateProcess");
+
 			pProcess.Terminate();
 			Send(new SampSharpDestroyEvent(0), SampSharpDestroyEvent.Iid, null);
 			return VSConstants.S_OK;
@@ -322,8 +335,10 @@ namespace SampSharp.VisualStudio.Debuggers
 		}
 
 		int IDebugProgram2.Terminate()
-		{
-			return VSConstants.S_OK;
+        {
+            Log("Terminate");
+
+            return VSConstants.S_OK;
 		}
 
 		int IDebugProgram2.Attach(IDebugEventCallback2 pCallback)
@@ -340,6 +355,7 @@ namespace SampSharp.VisualStudio.Debuggers
 		{
 			if (!Session.IsRunning)
 				Session.Continue();
+
 			Session.Dispose();
 			return VSConstants.S_OK;
 		}
@@ -597,17 +613,21 @@ namespace SampSharp.VisualStudio.Debuggers
 
 		public void Log(string message)
 		{
+		    Debug.WriteLine(message);
+		    Console.WriteLine(message);
 			_outputWindow.OutputString(message + "\r\n");
 		}
 
 		public void Send(IDebugEvent2 eventObject, string iidEvent, IDebugProgram2 program, IDebugThread2 thread)
 		{
+		    Log("SEND " + eventObject);
 			Callback.Send(this, eventObject, iidEvent, program, thread);
 		}
 
 		public void Send(IDebugEvent2 eventObject, string iidEvent, IDebugThread2 thread)
-		{
-			Send(eventObject, iidEvent, this, thread);
+        {
+            Log("SEND2 " + eventObject);
+            Send(eventObject, iidEvent, this, thread);
 		}
 	}
 }

@@ -322,7 +322,8 @@ namespace SampSharp.VisualStudio.Projects
                 FileName = xbuidPath,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true
+                RedirectStandardError = true,
+                
             };
 
             outputPane.Log("Starting XBuild with arguments: " + startInfo.Arguments);
