@@ -49,7 +49,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     semicolon-delimited list of modules when automatically loading 'All modules, unless
         ///     excluded'.
         /// </param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetSymbolLoadState(int isManual, int loadAdjacentSymbols, string includeList, string excludeList)
         {
             return VSConstants.S_OK;
@@ -63,7 +63,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     Gets the document name for the document at the pointer.
         /// </summary>
         /// <param name="locationPtr"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public string GetDocumentName(IntPtr locationPtr)
         {
             TEXT_POSITION[] startPosition;
@@ -77,7 +77,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="locationPtr"></param>
         /// <param name="startPosition"></param>
         /// <param name="endPosition"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public string GetLocationInfo(IntPtr locationPtr, out TEXT_POSITION[] startPosition,
             out TEXT_POSITION[] endPosition)
         {
@@ -93,7 +93,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="docPosition"></param>
         /// <param name="startPosition"></param>
         /// <param name="endPosition"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public string GetLocationInfo(IDebugDocumentPosition2 docPosition, out TEXT_POSITION[] startPosition,
             out TEXT_POSITION[] endPosition)
         {
@@ -152,7 +152,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// </summary>
         /// <param name="request"></param>
         /// <param name="pendingBreakpoint"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CreatePendingBreakpoint(IDebugBreakpointRequest2 request,
             out IDebugPendingBreakpoint2 pendingBreakpoint)
         {
@@ -166,7 +166,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     The sample engine does not support exceptions in the debuggee so this method is not actually implemented.
         /// </summary>
         /// <param name="pException"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetException(EXCEPTION_INFO[] pException)
         {
             if (pException[0].dwState.HasFlag(enum_EXCEPTION_STATE.EXCEPTION_STOP_FIRST_CHANCE))
@@ -181,7 +181,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <summary>
         /// </summary>
         /// <param name="pException"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int RemoveSetException(EXCEPTION_INFO[] pException)
         {
             if (_breakpointManager.ContainsCatchpoint(pException[0].bstrExceptionName))
@@ -196,7 +196,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     Removes the list of exceptions the IDE has set for a particular run-time architecture or language.
         /// </summary>
         /// <param name="guidType"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int RemoveAllSetExceptions(ref Guid guidType)
         {
             foreach (var catchpoint in _breakpointManager.Catchpoints)
@@ -208,7 +208,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     Gets the GUID of the DE.
         /// </summary>
         /// <param name="engineGuid">The unique identifier of the DE.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetEngineId(out Guid engineGuid)
         {
             engineGuid = new Guid(Guids.EngineId);
@@ -220,7 +220,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     clean up all references to the program and send a program destroy event.
         /// </summary>
         /// <param name="pProgram">The p program.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int DestroyProgram(IDebugProgram2 pProgram)
         {
             throw new NotImplementedException();
@@ -232,7 +232,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     It responds to that event by shutting down the engine.
         /// </summary>
         /// <param name="event">The event.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int ContinueFromSynchronousEvent(IDebugEvent2 @event)
         {
             if (@event is SampSharpDestroyEvent)
@@ -246,7 +246,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     strings returned by the DE are properly localized. The sample engine is not localized so this is not implemented.
         /// </summary>
         /// <param name="languageId">The language identifier.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetLocale(ushort languageId)
         {
             return VSConstants.S_OK;
@@ -258,7 +258,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     This allows the debugger to tell the engine where that location is.
         /// </summary>
         /// <param name="registryRoot">The registry root.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetRegistryRoot(string registryRoot)
         {
             return VSConstants.S_OK;
@@ -270,7 +270,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// </summary>
         /// <param name="metric">The metric.</param>
         /// <param name="value">The value.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetMetric(string metric, object value)
         {
             return VSConstants.S_OK;
@@ -281,7 +281,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     entering
         ///     breakmode.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CauseBreak()
         {
             EventHandler<TargetEventArgs> stepFinished = null;
@@ -310,7 +310,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="celtPrograms"></param>
         /// <param name="pCallback"></param>
         /// <param name="dwReason"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Attach(IDebugProgram2[] programs, IDebugProgramNode2[] rgpProgramNodes, uint celtPrograms,
             IDebugEventCallback2 pCallback, enum_ATTACH_REASON dwReason)
         {
@@ -351,7 +351,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     EnumThreads is called by the debugger when it needs to enumerate the threads in the program.
         /// </summary>
         /// <param name="ppEnum"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int EnumThreads(out IEnumDebugThreads2 ppEnum)
         {
             var threads = ThreadManager.All.ToArray();
@@ -370,7 +370,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     The name returned by this method is always a friendly, user-displayable name that describes the program.
         /// </summary>
         /// <param name="programName">Name of the program.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetName(out string programName)
         {
             programName = null;
@@ -380,7 +380,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <summary>
         ///     Terminates the program.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Terminate()
         {
             return VSConstants.S_OK;
@@ -389,7 +389,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <summary>
         ///     Determines if a debug engine (DE) can detach from the program.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CanDetach()
         {
             return VSConstants.S_OK;
@@ -399,7 +399,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     Detach is called when debugging is stopped and the process was attached to (as opposed to launched)
         ///     or when one of the Detach commands are executed in the UI.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Detach()
         {
             if (!Session.IsRunning)
@@ -415,7 +415,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     or IDebugEngine2::Attach methods. This allows identification of the program across debugger components.
         /// </summary>
         /// <param name="programId">The program identifier.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetProgramId(out Guid programId)
         {
             programId = _programId;
@@ -433,7 +433,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     The sample engine does not support this
         /// </summary>
         /// <param name="ppProperty"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetDebugProperty(out IDebugProperty2 ppProperty)
         {
             throw new NotImplementedException();
@@ -444,7 +444,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// </summary>
         /// <param name="pbstrEngine"></param>
         /// <param name="pguidEngine"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetEngineInfo(out string pbstrEngine, out Guid pguidEngine)
         {
             // TODO: Implement
@@ -457,7 +457,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     that was allocated when the program was executed.
         /// </summary>
         /// <param name="ppMemoryBytes"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetMemoryBytes(out IDebugMemoryBytes2 ppMemoryBytes)
         {
             throw new NotImplementedException();
@@ -471,7 +471,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="dwScope"></param>
         /// <param name="pCodeContext"></param>
         /// <param name="ppDisassemblyStream"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetDisassemblyStream(enum_DISASSEMBLY_STREAM_SCOPE dwScope, IDebugCodeContext2 pCodeContext,
             out IDebugDisassemblyStream2 ppDisassemblyStream)
         {
@@ -483,7 +483,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     EnumModules is called by the debugger when it needs to enumerate the modules in the program.
         /// </summary>
         /// <param name="ppEnum"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int EnumModules(out IEnumDebugModules2 ppEnum)
         {
             ppEnum = new MonoModuleEnum(new IDebugModule2[] { new MonoModule(this) });
@@ -495,7 +495,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     E_NOTIMPL
         /// </summary>
         /// <param name="ppUpdate"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetENCUpdate(out object ppUpdate)
         {
             ppUpdate = null;
@@ -512,7 +512,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="fSource">The f source.</param>
         /// <param name="pathEnum">The path enum.</param>
         /// <param name="safetyContext">The safety context.</param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int EnumCodePaths(string hint, IDebugCodeContext2 start, IDebugStackFrame2 frame, int fSource,
             out IEnumCodePaths2 pathEnum, out IDebugCodeContext2 safetyContext)
         {
@@ -526,7 +526,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// </summary>
         /// <param name="dumptype"></param>
         /// <param name="pszDumpUrl"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int WriteDump(enum_DUMPTYPE dumptype, string pszDumpUrl)
         {
             throw new NotImplementedException();
@@ -542,7 +542,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="thread"></param>
         /// <param name="kind"></param>
         /// <param name="unit"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Step(IDebugThread2 thread, enum_STEPKIND kind, enum_STEPUNIT unit)
         {
             switch (kind)
@@ -595,7 +595,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// </summary>
         /// <param name="pDocPos"></param>
         /// <param name="ppEnum"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int EnumCodeContexts(IDebugDocumentPosition2 pDocPos, out IEnumDebugCodeContexts2 ppEnum)
         {
             TEXT_POSITION[] startPosition;
@@ -615,7 +615,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     and the debugger does not want to actually enter break mode.
         /// </summary>
         /// <param name="pThread"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Continue(IDebugThread2 pThread)
         {
             Session.Continue();
@@ -627,7 +627,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     stepping state cleared.
         /// </summary>
         /// <param name="pThread"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int ExecuteOnThread(IDebugThread2 pThread)
         {
             var monoThread = (MonoThread) pThread;
@@ -666,7 +666,7 @@ namespace SampSharp.VisualStudio.Debuggers
         /// <param name="standardError"></param>
         /// <param name="callback"></param>
         /// <param name="process"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int LaunchSuspended(string server, IDebugPort2 port, string exe, string args, string directory,
             string environment, string options, enum_LAUNCH_FLAGS launchFlags, uint standardInput, uint standardOutput,
             uint standardError, IDebugEventCallback2 callback, out IDebugProcess2 process)
@@ -786,7 +786,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     Resume a process launched by IDebugEngineLaunch2.LaunchSuspended
         /// </summary>
         /// <param name="process"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int ResumeProcess(IDebugProcess2 process)
         {
             IDebugPort2 port;
@@ -805,7 +805,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     Determines if a process can be terminated.
         /// </summary>
         /// <param name="pProcess"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CanTerminateProcess(IDebugProcess2 pProcess)
         {
             return VSConstants.S_OK;
@@ -816,7 +816,7 @@ namespace SampSharp.VisualStudio.Debuggers
         ///     The debugger will call IDebugEngineLaunch2::CanTerminateProcess before calling this method
         /// </summary>
         /// <param name="pProcess"></param>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int TerminateProcess(IDebugProcess2 pProcess)
         {
             Log("TerminateProcess");

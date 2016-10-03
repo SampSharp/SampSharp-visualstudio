@@ -3,28 +3,37 @@ using Microsoft.VisualStudio.Debugger.Interop;
 
 namespace SampSharp.VisualStudio.Debuggers.Events
 {
-	public class MonoEngineCreateEvent : AsynchronousEvent, IDebugEngineCreateEvent2
-	{
-		public const string Iid = "FE5B734C-759D-4E59-AB04-F103343BDD06";
+    public class MonoEngineCreateEvent : AsynchronousEvent, IDebugEngineCreateEvent2
+    {
+        public const string Iid = "FE5B734C-759D-4E59-AB04-F103343BDD06";
 
-		private readonly IDebugEngine2 _engine;
+        private readonly IDebugEngine2 _engine;
 
-		public MonoEngineCreateEvent(MonoEngine engine)
-		{
-			_engine = engine;
-		}
+        public MonoEngineCreateEvent(MonoEngine engine)
+        {
+            _engine = engine;
+        }
 
-		int IDebugEngineCreateEvent2.GetEngine(out IDebugEngine2 engine)
-		{
-			engine = _engine;
+        #region Implementation of IDebugEngineCreateEvent2
 
-			return VSConstants.S_OK;
-		}
+        /// <summary>
+        ///     Retrieves the object that represents the newly created debug engine (DE).
+        /// </summary>
+        /// <param name="engine"></param>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
+        public int GetEngine(out IDebugEngine2 engine)
+        {
+            engine = _engine;
 
-		public static void Send(MonoEngine engine)
-		{
-			var eventObject = new MonoEngineCreateEvent(engine);
-			engine.Send(eventObject, Iid, null, null);
-		}
-	}
+            return VSConstants.S_OK;
+        }
+
+        #endregion
+
+        public static void Send(MonoEngine engine)
+        {
+            var eventObject = new MonoEngineCreateEvent(engine);
+            engine.Send(eventObject, Iid, null, null);
+        }
+    }
 }

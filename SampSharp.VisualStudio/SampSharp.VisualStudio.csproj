@@ -55,7 +55,6 @@
     <Compile Include="Debuggers\DebuggerGuids.cs" />
     <Compile Include="Debuggers\Enumerator.cs" />
     <Compile Include="Debuggers\Events\AsynchronousEvent.cs" />
-    <Compile Include="Debuggers\Events\BreakpointBoundEvent.cs" />
     <Compile Include="Debuggers\Events\MonoBreakpointBoundEvent.cs" />
     <Compile Include="Debuggers\Events\MonoBreakpointEvent.cs" />
     <Compile Include="Debuggers\Events\MonoEngineCreateEvent.cs" />
@@ -64,7 +63,6 @@
     <Compile Include="Debuggers\Events\SampSharpDestroyEvent.cs" />
     <Compile Include="Debuggers\Events\MonoStepCompleteEvent.cs" />
     <Compile Include="Debuggers\Events\MonoStoppingEvent.cs" />
-    <Compile Include="Debuggers\Events\ProgramDestroyEvent.cs" />
     <Compile Include="Debuggers\Events\SynchronousEvent.cs" />
     <Compile Include="Debuggers\Guids.cs" />
     <Compile Include="Debuggers\MonoBoundBreakpoint.cs" />

@@ -25,10 +25,7 @@ namespace SampSharp.VisualStudio.Projects
         /// </summary>
         private static readonly Dictionary<IVsCfg, SampSharpFlavorConfig> Configs =
             new Dictionary<IVsCfg, SampSharpFlavorConfig>();
-
-        private static readonly Dictionary<Tuple<Project, string>, SampSharpFlavorConfig> CfgsByDteProject =
-            new Dictionary<Tuple<Project, string>, SampSharpFlavorConfig>();
-
+        
         private readonly IVsDebuggableProjectCfg _baseDebugConfiguration;
         private readonly IVsCfg _baseProjectConfig;
 
@@ -57,7 +54,6 @@ namespace SampSharp.VisualStudio.Projects
             _projectConfig.get_CanonicalName(out configurationName);
 
             Configs.Add(baseProjectConfig, this);
-            CfgsByDteProject[Tuple.Create(GetDteProject(project), configurationName)] = this;
 
             var debugGuid = typeof(IVsDebuggableProjectCfg).GUID;
             IntPtr baseDebugConfigurationPtr;
@@ -521,11 +517,7 @@ namespace SampSharp.VisualStudio.Projects
 
             var outputFile = Path.Combine(dir, fileName);
 
-//			foreach (Project currentProject in dteProject.Collection)
-//			{
-//				// var cfg = cfgsByDteProject[Tuple.Create(currentProject, $"{projectConfiguration.ConfigurationName}|{projectConfiguration.PlatformName}")];
-//			}
-
+            // ReSharper disable once SuspiciousTypeConversion.Global
             var debugger = (IVsDebugger4) _project.Package.GetGlobalService<IVsDebugger>();
             var debugTargets = new VsDebugTargetInfo4[1];
             debugTargets[0].LaunchFlags = grfLaunch;
@@ -577,7 +569,7 @@ namespace SampSharp.VisualStudio.Projects
         /// <summary>
         ///     Closes the IVsProjectFlavorCfg object.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Close()
         {
             if (_isClosed)
@@ -588,14 +580,12 @@ namespace SampSharp.VisualStudio.Projects
 
             string configurationName;
             _projectConfig.get_CanonicalName(out configurationName);
-            CfgsByDteProject.Remove(Tuple.Create(GetDteProject(_project), configurationName));
 
             var hr = _innerProjectFlavorConfig.Close();
 
             Marshal.ReleaseComObject(_baseProjectConfig);
             Marshal.ReleaseComObject(_innerProjectFlavorConfig);
             Marshal.ReleaseComObject(_baseDebugConfiguration);
-//            Marshal.ReleaseComObject(baseBuildConfiguration);
 
             return hr;
         }

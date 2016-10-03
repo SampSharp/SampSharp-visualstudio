@@ -5,9 +5,7 @@ namespace SampSharp.VisualStudio.Debuggers
 	public static class DebuggerGuids
 	{
 		public static readonly Guid CSharpLanguageService = new Guid("{694DD9B6-B865-4C5B-AD85-86356E9C88DC}");
-
-		public static Guid GuidFilterRegisters { get; } = new Guid("223ae797-bd09-4f28-8241-2763bdc5f713");
-
+        
 		public static Guid GuidFilterLocals { get; } = new Guid("b200f725-e725-4c53-b36a-1ec27aef12ef");
 
 		public static Guid GuidFilterAllLocals { get; } = new Guid("196db21f-5f22-45a9-b5a3-32cddb30db06");

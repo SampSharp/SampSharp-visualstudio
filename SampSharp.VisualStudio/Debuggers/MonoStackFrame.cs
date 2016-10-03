@@ -86,10 +86,19 @@ namespace SampSharp.VisualStudio.Debuggers
 			}
 		}
 
-		// Creates an enumerator for properties associated with the stack frame, such as local variables.
-		// The sample engine only supports returning locals and parameters. Other possible values include
-		// class fields (this pointer), registers, exceptions...
-		int IDebugStackFrame2.EnumProperties(enum_DEBUGPROP_INFO_FLAGS dwFields, uint nRadix, ref Guid guidFilter,
+        /// <summary>
+        /// Creates an enumerator for properties associated with the stack frame, such as local variables.
+        /// The sample engine only supports returning locals and parameters. Other possible values include
+        /// class fields (this pointer), registers, exceptions...
+        /// </summary>
+        /// <param name="dwFields"></param>
+        /// <param name="nRadix"></param>
+        /// <param name="guidFilter"></param>
+        /// <param name="dwTimeout"></param>
+        /// <param name="elementsReturned"></param>
+        /// <param name="enumObject"></param>
+        /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
+        int IDebugStackFrame2.EnumProperties(enum_DEBUGPROP_INFO_FLAGS dwFields, uint nRadix, ref Guid guidFilter,
 			uint dwTimeout, out uint elementsReturned, out IEnumDebugPropertyInfo2 enumObject)
 		{
 			int hr;

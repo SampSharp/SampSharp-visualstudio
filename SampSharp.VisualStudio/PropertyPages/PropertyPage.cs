@@ -81,7 +81,7 @@ namespace SampSharp.VisualStudio.PropertyPages
 		///     Get the value of a Property which is stored in the PropertyStore,
 		/// </summary>
 		/// <param name="propertyName"></param>
-		/// <returns></returns>
+		/// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
 		public string GetValueForProperty(string propertyName)
 		{
 			return PropertyStore?.PropertyValue(propertyName);
@@ -265,7 +265,7 @@ namespace SampSharp.VisualStudio.PropertyPages
 		/// <param name="pMsg">
 		///     A pointer to the MSG structure describing the keystroke to be processed.
 		/// </param>
-		/// <returns></returns>
+		/// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
 		public int TranslateAccelerator(MSG[] pMsg)
 		{
 			// Pass the message to the PageView object.
