@@ -8,97 +8,64 @@ namespace SampSharp.VisualStudio.PropertyPages
 {
     public class PageView : UserControl, IPageView, IPropertyPageUi
     {
-        private readonly PropertyControlMap _propertyControlMap;
+        private readonly IPageViewSite _pageViewSite;
+        private PropertyControlMap _propertyControlMap;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public PageView()
+        protected PageView()
         {
         }
 
-        public PageView(IPageViewSite pageViewSite)
+        protected PageView(IPageViewSite pageViewSite)
         {
-            _propertyControlMap = new PropertyControlMap(pageViewSite, this, PropertyControlTable);
+            _pageViewSite = pageViewSite;
         }
 
         /// <summary>
         ///     This property is used to map the control on a PageView object to a property
         ///     in PropertyStore object.
-        ///     This property must be overriden.
         /// </summary>
-        protected virtual PropertyControlTable PropertyControlTable
-        {
-            get { throw new NotImplementedException(); }
-        }
+        protected virtual PropertyControlTable PropertyControlTable { get; } = null;
 
         /// <summary>
-        ///     Occur if the value of a control changed.
+        ///     Occurs if the value of a control changed.
         /// </summary>
-        public event UserEditCompleteHandler UserEditComplete;
-
-        /// <summary>
-        ///     Raise the UserEditComplete event.
-        /// </summary>
-        private void CheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            var chk = sender as CheckBox;
-            if (chk != null) UserEditComplete?.Invoke(chk, chk.Checked.ToString());
-        }
-
-        /// <summary>
-        ///     Raise the UserEditComplete event.
-        /// </summary>
-        private void TextBox_TextChanged(object sender, EventArgs e)
-        {
-            var tb = sender as TextBox;
-            if (tb != null) UserEditComplete?.Invoke(tb, tb.Text);
-        }
-
+        public event EventHandler<UserEditCompleteEventArgs> UserEditComplete;
+        
         protected virtual void OnInitialize()
         {
         }
 
-        #region IPageView members
-
-        /// <summary>
-        ///     Make the PageView hide.
-        /// </summary>
-        public void HideView()
-        {
-            Hide();
-        }
+        #region Implementation of IPageView
 
         /// <summary>
         ///     Initialize this PageView object.
         /// </summary>
-        /// <param name="parentControl">
-        ///     The parent control of this PageView object.
-        /// </param>
-        /// <param name="rectangle">
-        ///     The position of this PageView object.
-        /// </param>
+        /// <param name="parentControl">The parent control of this PageView object.</param>
+        /// <param name="rectangle">The position of this PageView object.</param>
         public virtual void Initialize(Control parentControl, Rectangle rectangle)
         {
             SetBounds(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
             Parent = parentControl;
 
             // Initialize the value of the Controls on this PageView object. 
+            _propertyControlMap = new PropertyControlMap(_pageViewSite, this, PropertyControlTable);
             _propertyControlMap.InitializeControls();
 
             // Register the event when the value of a Control changed.
             foreach (var control in PropertyControlTable.GetControls())
             {
-                var tb = control as TextBox;
-                if (tb != null)
-                {
-                    tb.TextChanged += TextBox_TextChanged;
-                }
-                else
-                {
-                    var chk = control as CheckBox;
-                    if (chk != null)
-                        chk.CheckedChanged += CheckBox_CheckedChanged;
-                }
+                var textBox = control as TextBox;
+                var checkBox = control as CheckBox;
+                if (textBox != null)
+                    textBox.TextChanged +=
+                        (sender, args) => OnUserEditComplete(new UserEditCompleteEventArgs(textBox, textBox.Text));
+                else if (checkBox != null)
+                    checkBox.CheckedChanged +=
+                        (sender, args) =>
+                                OnUserEditComplete(new UserEditCompleteEventArgs(checkBox, checkBox.Checked.ToString()));
             }
+
             OnInitialize();
         }
 
@@ -114,36 +81,26 @@ namespace SampSharp.VisualStudio.PropertyPages
         /// <summary>
         ///     Pass a keystroke to the property page for processing.
         /// </summary>
-        public int ProcessAccelerator(ref Message keyboardMessage)
-        {
-            if (FromHandle(keyboardMessage.HWnd).PreProcessMessage(ref keyboardMessage))
-                return VSConstants.S_OK;
-            return VSConstants.S_FALSE;
-        }
+        public int ProcessAccelerator(ref Message keyboardMessage) =>
+            FromHandle(keyboardMessage.HWnd).PreProcessMessage(ref keyboardMessage)
+                ? VSConstants.S_OK
+                : VSConstants.S_FALSE;
 
         /// <summary>
         ///     Refresh the UI.
         /// </summary>
-        public void RefreshPropertyValues()
-        {
-            _propertyControlMap.InitializeControls();
-        }
-
-        /// <summary>
-        ///     Show this PageView object.
-        /// </summary>
-        public void ShowView()
-        {
-            Show();
-        }
+        public void RefreshPropertyValues() => _propertyControlMap?.InitializeControls();
 
         #endregion
 
-        #region IPropertyPageUI
+        #region Implementation of IPropertyPageUI
 
         /// <summary>
         ///     Get the value of a Control on this PageView object.
         /// </summary>
+        /// <param name="control">The control.</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         public virtual string GetControlValue(Control control)
         {
             var chk = control as CheckBox;
@@ -159,6 +116,8 @@ namespace SampSharp.VisualStudio.PropertyPages
         /// <summary>
         ///     Set the value of a Control on this PageView object.
         /// </summary>
+        /// <param name="control">The control.</param>
+        /// <param name="value">The value.</param>
         public virtual void SetControlValue(Control control, string value)
         {
             var chk = control as CheckBox;
@@ -178,5 +137,10 @@ namespace SampSharp.VisualStudio.PropertyPages
         }
 
         #endregion
+
+        protected virtual void OnUserEditComplete(UserEditCompleteEventArgs e)
+        {
+            UserEditComplete?.Invoke(this, e);
+        }
     }
 }

@@ -13,7 +13,7 @@ namespace SampSharp.VisualStudio
     [ProvideObject(typeof(SampSharpPropertyPage), RegisterUsing = RegistrationMethod.CodeBase)]
     [ProvideProjectFactory(typeof(SampSharpProjectFactory), "SampSharp", null, null, null, @"..\Templates\Projects")]
     [ProvideDebugEngine("SampSharp Debug Engine", typeof(SampSharpDebugProvider), typeof(MonoEngine),
-         Guids.EngineIdGuidString, true, true,
+         "{"+ Guids.EngineIdGuidString + "}", true, true,
          false)]
     public sealed class SampSharpPackage : Package
     {

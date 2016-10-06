@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using SampSharp.VisualStudio.PropertyPages;
@@ -12,12 +14,21 @@ namespace SampSharp.VisualStudio.ProgramProperties
 
         public SampSharpPropertiesView()
         {
-            InitializeComponent();
         }
 
         public SampSharpPropertiesView(IPageViewSite pageViewSite) : base(pageViewSite)
         {
+        }
+
+        public override void Initialize(Control parentControl, Rectangle rectangle)
+        {
             InitializeComponent();
+
+            monoLocationTextBox.TextChanged += (sender, args) => {
+                Debug.WriteLine("Text changed!");
+            };
+
+            base.Initialize(parentControl, rectangle);
         }
 
         /// <summary>
@@ -53,10 +64,16 @@ namespace SampSharp.VisualStudio.ProgramProperties
         {
             var dialog = new FolderBrowserDialog
             {
-                SelectedPath = monoLocationTextBox.Text
+                SelectedPath = monoLocationTextBox.Text,
+                Description = "Please select the location of your mono runtime.",
+                ShowNewFolderButton = false
             };
+
             if (dialog.ShowDialog(this) == DialogResult.OK)
+            {
+                Debug.WriteLine($"Value to be set: {dialog.SelectedPath}; value to be replaced {monoLocationTextBox.Text}");
                 monoLocationTextBox.Text = dialog.SelectedPath;
+            }
         }
     }
 }

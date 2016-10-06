@@ -19,19 +19,21 @@ namespace SampSharp.VisualStudio.PropertyPages
         }
 
         /// <summary>
-        ///     Get the Control which is mapped to a Property.
+        /// Get the Control which is mapped to a the specified property name.
         /// </summary>
+        /// <param name="propertyName">Name of the property.</param>
+        /// <returns></returns>
         public Control GetControlFromPropertyName(string propertyName)
         {
             Control control;
-            if (_propertyNameIndex.TryGetValue(propertyName, out control))
-                return control;
-            return null;
+            _propertyNameIndex.TryGetValue(propertyName, out control);
+            return control;
         }
 
         /// <summary>
-        ///     Get all Controls.
+        /// Get all Controls.
         /// </summary>
+        /// <returns></returns>
         public List<Control> GetControls()
         {
             var controlArray = new Control[_controlNameIndex.Count];
@@ -40,19 +42,21 @@ namespace SampSharp.VisualStudio.PropertyPages
         }
 
         /// <summary>
-        ///     Get the Property Name which is mapped to a Control.
+        /// Get the Property Name which is mapped to a Control.
         /// </summary>
+        /// <param name="control">The control.</param>
+        /// <returns></returns>
         public string GetPropertyNameFromControl(Control control)
         {
             string str;
-            if (_controlNameIndex.TryGetValue(control, out str))
-                return str;
-            return null;
+            _controlNameIndex.TryGetValue(control, out str);
+            return str;
         }
 
         /// <summary>
-        ///     Get all Property Names.
+        /// Get all property names.
         /// </summary>
+        /// <returns></returns>
         public List<string> GetPropertyNames()
         {
             var strArray = new string[_propertyNameIndex.Count];
@@ -61,8 +65,10 @@ namespace SampSharp.VisualStudio.PropertyPages
         }
 
         /// <summary>
-        ///     Remove a Key Value Pair from the dictionaries.
+        /// Remove a Key Value Pair from the dictionaries.
         /// </summary>
+        /// <param name="propertyName">Name of the property.</param>
+        /// <param name="control">The control.</param>
         public void Remove(string propertyName, Control control)
         {
             _controlNameIndex.Remove(control);

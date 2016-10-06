@@ -38,14 +38,11 @@ namespace SampSharp.VisualStudio.PropertyPages
             }
             _propertyPageUi.UserEditComplete += propertyPageUI_UserEditComplete;
         }
-
-        /// <summary>
-        ///     Notify the PropertyPage object that a Control value is changed.
-        /// </summary>
-        private void propertyPageUI_UserEditComplete(Control control, string value)
+        
+        private void propertyPageUI_UserEditComplete(object sender, UserEditCompleteEventArgs e)
         {
-            var propertyNameFromControl = _propertyControlTable.GetPropertyNameFromControl(control);
-            _pageViewSite.PropertyChanged(propertyNameFromControl, value);
+            var propertyNameFromControl = _propertyControlTable.GetPropertyNameFromControl(e.Control);
+            _pageViewSite.PropertyChanged(propertyNameFromControl, e.Value);
         }
     }
 }

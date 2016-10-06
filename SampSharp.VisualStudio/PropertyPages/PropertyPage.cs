@@ -197,11 +197,11 @@ namespace SampSharp.VisualStudio.PropertyPages
             switch (nCmdShow)
             {
                 case Constants.SwHide:
-                    MyPageView.HideView();
+                    MyPageView.Hide();
                     return;
                 case Constants.SwShow:
                 case Constants.SwShownormal:
-                    MyPageView.ShowView();
+                    MyPageView.Show();
                     return;
             }
         }

@@ -43,9 +43,9 @@ namespace SampSharp.VisualStudio.ProgramProperties
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(11, 21);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(321, 13);
+            this.label1.Size = new System.Drawing.Size(209, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Specify the locations of your SA-MP server and your mono runtime.";
+            this.label1.Text = "Specify the locations of your mono runtime:";
             // 
             // groupBox1
             // 
@@ -63,10 +63,9 @@ namespace SampSharp.VisualStudio.ProgramProperties
             // 
             // browseRuntimeDirectoryButton
             // 
-            this.browseRuntimeDirectoryButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.browseRuntimeDirectoryButton.Location = new System.Drawing.Point(303, 57);
+            this.browseRuntimeDirectoryButton.Location = new System.Drawing.Point(303, 58);
             this.browseRuntimeDirectoryButton.Name = "browseRuntimeDirectoryButton";
-            this.browseRuntimeDirectoryButton.Size = new System.Drawing.Size(26, 25);
+            this.browseRuntimeDirectoryButton.Size = new System.Drawing.Size(25, 22);
             this.browseRuntimeDirectoryButton.TabIndex = 6;
             this.browseRuntimeDirectoryButton.Text = "...";
             this.browseRuntimeDirectoryButton.UseVisualStyleBackColor = true;
@@ -74,11 +73,11 @@ namespace SampSharp.VisualStudio.ProgramProperties
             // 
             // monoLocationTextBox
             // 
-            this.monoLocationTextBox.Font = new System.Drawing.Font("Microsoft Sans Serif", 10.25F);
             this.monoLocationTextBox.Location = new System.Drawing.Point(14, 59);
             this.monoLocationTextBox.Name = "monoLocationTextBox";
-            this.monoLocationTextBox.Size = new System.Drawing.Size(283, 23);
+            this.monoLocationTextBox.Size = new System.Drawing.Size(283, 20);
             this.monoLocationTextBox.TabIndex = 4;
+            this.monoLocationTextBox.Text = "SampSharpGameMode1";
             // 
             // label3
             // 

@@ -112,7 +112,7 @@
     <Compile Include="PropertyPages\PropertyControlMap.cs" />
     <Compile Include="PropertyPages\PropertyControlTable.cs" />
     <Compile Include="PropertyPages\PropertyPage.cs" />
-    <Compile Include="PropertyPages\UserEditCompleteHandler.cs" />
+    <Compile Include="PropertyPages\UserEditCompleteEventArgs.cs" />
     <Compile Include="Utils\ComponentException.cs" />
     <Compile Include="Utils\EngineUtils.cs" />
     <Compile Include="Utils\FileUtils.cs" />
