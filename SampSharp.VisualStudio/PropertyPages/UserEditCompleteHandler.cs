@@ -2,5 +2,5 @@
 
 namespace SampSharp.VisualStudio.PropertyPages
 {
-	public delegate void UserEditCompleteHandler(Control control, string value);
+    public delegate void UserEditCompleteHandler(Control control, string value);
 }

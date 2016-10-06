@@ -9,7 +9,7 @@ using EnvDTE;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell.Interop;
-using SampSharp.VisualStudio.Debuggers;
+using SampSharp.VisualStudio.DebugEngine;
 using SampSharp.VisualStudio.ProgramProperties;
 using SampSharp.VisualStudio.Utils;
 using Process = System.Diagnostics.Process;
@@ -25,7 +25,7 @@ namespace SampSharp.VisualStudio.Projects
         /// </summary>
         private static readonly Dictionary<IVsCfg, SampSharpFlavorConfig> Configs =
             new Dictionary<IVsCfg, SampSharpFlavorConfig>();
-        
+
         private readonly IVsDebuggableProjectCfg _baseDebugConfiguration;
         private readonly IVsCfg _baseProjectConfig;
 
@@ -318,8 +318,7 @@ namespace SampSharp.VisualStudio.Projects
                 FileName = xbuidPath,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                
+                RedirectStandardError = true
             };
 
             outputPane.Log("Starting XBuild with arguments: " + startInfo.Arguments);
@@ -523,7 +522,7 @@ namespace SampSharp.VisualStudio.Projects
             debugTargets[0].LaunchFlags = grfLaunch;
             debugTargets[0].dlo = (uint) DEBUG_LAUNCH_OPERATION.DLO_CreateProcess;
             debugTargets[0].bstrExe = outputFile;
-            debugTargets[0].guidLaunchDebugEngine = new Guid(Guids.EngineId);
+            debugTargets[0].guidLaunchDebugEngine = Guids.EngineIdGuid;
 
             var processInfo = new VsDebugTargetProcessInfo[debugTargets.Length];
             debugger.LaunchDebugTargets4(1, debugTargets, processInfo);
