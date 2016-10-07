@@ -66,6 +66,8 @@
     <Compile Include="DebugEngine\Guids.cs" />
     <Compile Include="DebugEngine\MonoBoundBreakpoint.cs" />
     <Compile Include="DebugEngine\Enumerators\MonoBoundBreakpointsEnumerator.cs" />
+    <Compile Include="DebugEngine\VSConstantHelper.cs" />
+    <Compile Include="Debugger\DebuggedProgram.cs" />
     <Compile Include="Debugger\MonoBreakpointManager.cs" />
     <Compile Include="DebugEngine\MonoBreakpointResolution.cs" />
     <Compile Include="DebugEngine\MonoCallbackExtensions.cs" />
@@ -88,6 +90,7 @@
     <Compile Include="DebugEngine\MonoThread.cs" />
     <Compile Include="DebugEngine\Enumerators\MonoThreadEnumerator.cs" />
     <Compile Include="Debugger\MonoThreadManager.cs" />
+    <Compile Include="Debugger\ServerConfig.cs" />
     <Compile Include="SampSharpPackage.cs" />
     <Compile Include="ProgramProperties\SampSharpPropertiesStore.cs" />
     <Compile Include="ProgramProperties\SampSharpPropertiesView.cs">

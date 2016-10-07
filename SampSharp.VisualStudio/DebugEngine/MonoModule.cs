@@ -1,17 +1,18 @@
 ﻿using System;
 using System.IO;
 using Microsoft.VisualStudio.Debugger.Interop;
+using SampSharp.VisualStudio.Debugger;
 using static Microsoft.VisualStudio.VSConstants;
 
 namespace SampSharp.VisualStudio.DebugEngine
 {
     public class MonoModule : IDebugModule3
     {
-        private readonly MonoEngine _engine;
+        private readonly DebuggedProgram _program;
 
-        public MonoModule(MonoEngine engine)
+        public MonoModule(DebuggedProgram program)
         {
-            _engine = engine;
+            _program = program;
         }
 
         #region Implementation of IDebugModule2
@@ -28,12 +29,12 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             if ((dwFields & enum_MODULE_INFO_FIELDS.MIF_NAME) != 0)
             {
-                info.m_bstrName = Path.GetFileName(_engine.Session.VirtualMachine.RootDomain.GetEntryAssembly().Location);
+                info.m_bstrName = Path.GetFileName(_program.Session.VirtualMachine.RootDomain.GetEntryAssembly().Location);
                 info.dwValidFields |= enum_MODULE_INFO_FIELDS.MIF_NAME;
             }
             if ((dwFields & enum_MODULE_INFO_FIELDS.MIF_URL) != 0)
             {
-                info.m_bstrUrl = _engine.Session.VirtualMachine.RootDomain.GetEntryAssembly().Location;
+                info.m_bstrUrl = _program.Session.VirtualMachine.RootDomain.GetEntryAssembly().Location;
                 info.dwValidFields |= enum_MODULE_INFO_FIELDS.MIF_URL;
             }
             if ((dwFields & enum_MODULE_INFO_FIELDS.MIF_LOADADDRESS) != 0)

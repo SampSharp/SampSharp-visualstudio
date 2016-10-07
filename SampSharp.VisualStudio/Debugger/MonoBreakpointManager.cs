@@ -72,7 +72,7 @@ namespace SampSharp.VisualStudio.Debugger
         /// <param name="breakEvent">The break event.</param>
         public void Remove(BreakEvent breakEvent)
         {
-            Engine.Session.Breakpoints.Remove(breakEvent);
+            Engine.Program.Session.Breakpoints.Remove(breakEvent);
             _breakpoints.Remove(breakEvent);
         }
 

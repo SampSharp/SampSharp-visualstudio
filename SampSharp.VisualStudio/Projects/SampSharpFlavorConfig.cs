@@ -6,12 +6,12 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Xml;
 using EnvDTE;
-using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell.Interop;
 using SampSharp.VisualStudio.DebugEngine;
 using SampSharp.VisualStudio.ProgramProperties;
 using SampSharp.VisualStudio.Utils;
+using static Microsoft.VisualStudio.VSConstants;
 using Process = System.Diagnostics.Process;
 
 namespace SampSharp.VisualStudio.Projects
@@ -105,11 +105,11 @@ namespace SampSharp.VisualStudio.Projects
         {
             // Return, if it is our guid.
             if (IsMyFlavorGuid(ref guidFlavor))
-                return VSConstants.S_OK;
+                return S_OK;
 
             // Forward the call to inner flavor(s).
             var fragment = _innerProjectFlavorConfig as IPersistXMLFragment;
-            return fragment?.InitNew(ref guidFlavor, storage) ?? VSConstants.S_OK;
+            return fragment?.InitNew(ref guidFlavor, storage) ?? S_OK;
         }
 
         /// <summary>
@@ -141,7 +141,7 @@ namespace SampSharp.VisualStudio.Projects
             if ((pfDirty == 0) && _innerProjectFlavorConfig is IPersistXMLFragment)
                 return ((IPersistXMLFragment) _innerProjectFlavorConfig).IsFragmentDirty(storage, out pfDirty);
 
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -172,7 +172,7 @@ namespace SampSharp.VisualStudio.Projects
 
             // Forward the call to inner flavor(s)
             var cfg = _innerProjectFlavorConfig as IPersistXMLFragment;
-            return cfg?.Load(ref guidFlavor, storage, pszXmlFragment) ?? VSConstants.S_OK;
+            return cfg?.Load(ref guidFlavor, storage, pszXmlFragment) ?? S_OK;
         }
 
         /// <summary>
@@ -222,26 +222,26 @@ namespace SampSharp.VisualStudio.Projects
             var fragment = _innerProjectFlavorConfig as IPersistXMLFragment;
             return fragment != null
                 ? fragment.Save(ref guidFlavor, storage, out pbstrXmlFragment, fClearDirty)
-                : VSConstants.S_OK;
+                : S_OK;
         }
 
         public int get_ProjectCfg(out IVsProjectCfg ppIVsProjectCfg)
         {
             ppIVsProjectCfg = this;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int AdviseBuildStatusCallback(IVsBuildStatusCallback callback, out uint pdwCookie)
         {
             pdwCookie = ++_callbackCookieCounter;
             _callbacks[_callbackCookieCounter] = callback;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int UnadviseBuildStatusCallback(uint dwCookie)
         {
             _callbacks.Remove(dwCookie);
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int StartBuild(IVsOutputWindowPane outputPane, uint dwOptions)
@@ -271,7 +271,7 @@ namespace SampSharp.VisualStudio.Projects
                 outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
                     "Error: You must set up the mono runtime directory on the 'SampSharp' project property page.");
                 UpdateBuildStatus(0);
-                return VSConstants.S_FALSE;
+                return S_FALSE;
             }
 
             // xbuild
@@ -284,7 +284,7 @@ namespace SampSharp.VisualStudio.Projects
                 outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
                     "Error: XBuild is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
                 UpdateBuildStatus(0);
-                return VSConstants.S_FALSE;
+                return S_FALSE;
             }
 
             if (!File.Exists(monoPath))
@@ -292,7 +292,7 @@ namespace SampSharp.VisualStudio.Projects
                 outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
                     "Error: mono is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
                 UpdateBuildStatus(0);
-                return VSConstants.S_FALSE;
+                return S_FALSE;
             }
 
             if (!File.Exists(pdb2mdbPath))
@@ -300,7 +300,7 @@ namespace SampSharp.VisualStudio.Projects
                 outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
                     "Error: pdb2mdb is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
                 UpdateBuildStatus(0);
-                return VSConstants.S_FALSE;
+                return S_FALSE;
             }
 
             var projectFile = dteProject.FullName;
@@ -321,6 +321,7 @@ namespace SampSharp.VisualStudio.Projects
                 RedirectStandardError = true
             };
 
+            // XBuild the project.
             outputPane.Log("Starting XBuild with arguments: " + startInfo.Arguments);
 
             var process = new Process { StartInfo = startInfo };
@@ -330,8 +331,8 @@ namespace SampSharp.VisualStudio.Projects
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             process.WaitForExit();
-
-            // pdb2mdb
+            
+            // Convert symbol files from .pdb to .mdb.
             startInfo = new ProcessStartInfo
             {
                 Arguments = "\"" + pdb2mdbPath + "\" \"" + outputFile + "\"",
@@ -354,30 +355,26 @@ namespace SampSharp.VisualStudio.Projects
             process.WaitForExit();
 
             outputPane.Log("XBuild finished.");
-
-
-            outputPane.Log(VsLogSeverity.Message, dteProject.UniqueName, dteProject.FullName,
-                "Building has not yet been implemented.");
-
+            
             UpdateBuildStatus(1);
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int StartClean(IVsOutputWindowPane outputPane, uint dwOptions)
         {
-            var dteProject = GetDteProject(_project);
-            var projectFolder = Path.GetDirectoryName(dteProject.FullName);
+//            var dteProject = GetDteProject(_project);
+//            var projectFolder = Path.GetDirectoryName(dteProject.FullName);
+//
+//            outputPane.Log($"Starting cleaning of {projectFolder}...");
+            outputPane.Log("Cleaning is not implemented by the SampSharp Visual Studio extension."); //todo
 
-            outputPane.Log($"Starting cleaning of {projectFolder}...");
-            outputPane.Log("TODO!"); //todo
-
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int StartUpToDateCheck(IVsOutputWindowPane outputPane, uint dwOptions)
         {
             // Always rebuild
-            return VSConstants.S_FALSE;
+            return S_FALSE;
         }
 
         public int QueryStatus(out int pfBuildDone)
@@ -387,33 +384,33 @@ namespace SampSharp.VisualStudio.Projects
 
         public int Stop(int fSync)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         [Obsolete]
         public int Wait(uint dwMilliseconds, int fTickWhenMessageQNotEmpty)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int QueryStartBuild(uint dwOptions, int[] pfSupported, int[] pfReady)
         {
             pfSupported[0] = 1;
             pfReady[0] = 1;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int QueryStartClean(uint dwOptions, int[] pfSupported, int[] pfReady)
         {
             pfSupported[0] = 1;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int QueryStartUpToDateCheck(uint dwOptions, int[] pfSupported, int[] pfReady)
         {
             pfSupported[0] = 0;
             pfReady[0] = 1;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int get_DisplayName(out string pbstrDisplayName)
@@ -527,13 +524,13 @@ namespace SampSharp.VisualStudio.Projects
             var processInfo = new VsDebugTargetProcessInfo[debugTargets.Length];
             debugger.LaunchDebugTargets4(1, debugTargets, processInfo);
 
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         public int QueryDebugLaunch(uint grfLaunch, out int pfCanLaunch)
         {
             pfCanLaunch = 1;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -548,21 +545,21 @@ namespace SampSharp.VisualStudio.Projects
             if (iidCfg == typeof(IVsDebuggableProjectCfg).GUID)
             {
                 ppCfg = Marshal.GetComInterfaceForObject(this, typeof(IVsDebuggableProjectCfg));
-                return VSConstants.S_OK;
+                return S_OK;
             }
             if (iidCfg == typeof(IVsBuildableProjectCfg2).GUID)
             {
                 ppCfg = Marshal.GetComInterfaceForObject(this, typeof(IVsBuildableProjectCfg2));
-                return VSConstants.S_OK;
+                return S_OK;
             }
             if (iidCfg == typeof(IVsBuildableProjectCfg).GUID)
             {
                 ppCfg = Marshal.GetComInterfaceForObject(this, typeof(IVsBuildableProjectCfg));
-                return VSConstants.S_OK;
+                return S_OK;
             }
             if (_innerProjectFlavorConfig != null)
                 return _innerProjectFlavorConfig.get_CfgType(ref iidCfg, out ppCfg);
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -572,7 +569,7 @@ namespace SampSharp.VisualStudio.Projects
         public int Close()
         {
             if (_isClosed)
-                return VSConstants.E_FAIL;
+                return E_FAIL;
 
             _isClosed = true;
             Configs.Remove(_baseProjectConfig);
@@ -614,7 +611,7 @@ namespace SampSharp.VisualStudio.Projects
                 throw new ArgumentNullException(nameof(hierarchy));
 
             object obj;
-            hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int) __VSHPROPID.VSHPROPID_ExtObject, out obj);
+            hierarchy.GetProperty(VSITEMID_ROOT, (int) __VSHPROPID.VSHPROPID_ExtObject, out obj);
             return obj as Project;
         }
     }

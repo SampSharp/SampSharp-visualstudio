@@ -232,7 +232,7 @@ namespace SampSharp.VisualStudio.DebugEngine
                 _lineNumberOverride = null;
                 // if (true || args.Thread.Backtrace.GetFrame(0).SourceLocation.Line == startPosition[0].dwLine)
                 // {
-                _engine.Session.TargetStopped -= stepFinished;
+                _engine.Program.Session.TargetStopped -= stepFinished;
                 //     waiter.Set();
                 //     engine.Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])), MonoStepCompleteEvent.IID, engine.ThreadManager[args.Thread]);
                 // }
@@ -241,8 +241,8 @@ namespace SampSharp.VisualStudio.DebugEngine
                 //     engine.Session.NextInstruction();
                 // }
             };
-            _engine.Session.TargetStopped += stepFinished;
-            _engine.Session.SetNextStatement(fileName, (int) startPosition[0].dwLine,
+            _engine.Program.Session.TargetStopped += stepFinished;
+            _engine.Program.Session.SetNextStatement(fileName, (int) startPosition[0].dwLine,
                 (int) startPosition[0].dwColumn + 1);
             _lineNumberOverride = (int) startPosition[0].dwLine;
             // engine.Session.Stop();
@@ -397,9 +397,10 @@ namespace SampSharp.VisualStudio.DebugEngine
 
         public int GetLogicalThread(IDebugStackFrame2 stackFrame, out IDebugLogicalThread2 logicalThread)
         {
+            logicalThread = null;
+
             Debug.Fail("This function is not called by the debugger");
 
-            logicalThread = null;
             return E_NOTIMPL;
         }
 

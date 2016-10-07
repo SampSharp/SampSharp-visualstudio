@@ -75,7 +75,7 @@ namespace SampSharp.VisualStudio.DebugEngine
                 out endPosition);
             // documentName = engine.TranslateToBuildServerPath(documentName);
 
-            _breakpoint = engine.Session.Breakpoints.Add(documentName, (int) startPosition[0].dwLine + 1,
+            _breakpoint = engine.Program.Session.Breakpoints.Add(documentName, (int) startPosition[0].dwLine + 1,
                 (int) startPosition[0].dwColumn + 1);
             _breakpointManager.Add(_breakpoint, this);
             SetCondition(_requestInfo.bpCondition);

@@ -1,42 +1,35 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Debugger.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Mono.Debugging.Client;
 using Mono.Debugging.Soft;
 using SampSharp.VisualStudio.DebugEngine.Enumerators;
 using SampSharp.VisualStudio.DebugEngine.Events;
 using SampSharp.VisualStudio.Debugger;
 using SampSharp.VisualStudio.Utils;
-using Task = System.Threading.Tasks.Task;
 
 namespace SampSharp.VisualStudio.DebugEngine
 {
     [Guid("D78CF801-CE2A-499B-BF1F-C81742877A34")]
     public class MonoEngine : IDebugEngine2, IDebugProgram3, IDebugEngineLaunch2, IDebugSymbolSettings100
     {
-        private readonly MonoBreakpointManager _breakpointManager;
+        private readonly MonoThreadManager _threadManager;
         private IVsOutputWindowPane _outputWindow;
-        private AD_PROCESS_ID _processId;
 
-        private Guid _programId;
-        private AutoResetEvent _waiter;
-
-        public MonoEngine()
-        {
-            _breakpointManager = new MonoBreakpointManager(this);
-            ThreadManager = new MonoThreadManager(this);
+        public MonoEngine() {
+            var breakpointManager = new MonoBreakpointManager(this);
+            _threadManager = new MonoThreadManager(this);
+            
+            Program = new DebuggedProgram(this, breakpointManager, _threadManager);
         }
 
-        public MonoThreadManager ThreadManager { get; }
-        public SoftDebuggerSession Session { get; private set; }
         public IDebugEventCallback2 Callback { get; private set; }
+
+        public DebuggedProgram Program { get; }
 
         #region Implementation of IDebugSymbolSettings100
 
@@ -158,9 +151,9 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int CreatePendingBreakpoint(IDebugBreakpointRequest2 request,
             out IDebugPendingBreakpoint2 pendingBreakpoint)
         {
-            pendingBreakpoint = new MonoPendingBreakpoint(_breakpointManager, request);
+            pendingBreakpoint = Program.CreatePendingBreakpoint(request);
 
-            return VSConstants.S_OK;
+            return (pendingBreakpoint != null).ToVS();
         }
 
         /// <summary>
@@ -171,13 +164,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetException(EXCEPTION_INFO[] pException)
         {
-            if (pException[0].dwState.HasFlag(enum_EXCEPTION_STATE.EXCEPTION_STOP_FIRST_CHANCE))
-            {
-                var catchpoint = Session.Breakpoints.AddCatchpoint(pException[0].bstrExceptionName);
-                _breakpointManager.Add(catchpoint);
-                return VSConstants.S_OK;
-            }
-            return RemoveSetException(pException);
+            return Program.SetException(pException[0]).ToVS();
         }
 
         /// <summary>
@@ -186,12 +173,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int RemoveSetException(EXCEPTION_INFO[] pException)
         {
-            if (_breakpointManager.ContainsCatchpoint(pException[0].bstrExceptionName))
-            {
-                _breakpointManager.Remove(_breakpointManager[pException[0].bstrExceptionName]);
-                Session.Breakpoints.RemoveCatchpoint(pException[0].bstrExceptionName);
-            }
-            return VSConstants.S_OK;
+            return Program.RemoveSetException(pException[0]).ToVS();
         }
 
         /// <summary>
@@ -201,9 +183,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int RemoveAllSetExceptions(ref Guid guidType)
         {
-            foreach (var catchpoint in _breakpointManager.Catchpoints)
-                Session.Breakpoints.RemoveCatchpoint(catchpoint.ExceptionName);
-            return VSConstants.S_OK;
+            return Program.RemoveAllSetExceptions().ToVS();
         }
 
         /// <summary>
@@ -238,7 +218,8 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int ContinueFromSynchronousEvent(IDebugEvent2 @event)
         {
             if (@event is SampSharpDestroyEvent)
-                Session.Dispose();
+                Program.Dispose();
+
             return VSConstants.S_OK;
         }
 
@@ -286,20 +267,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CauseBreak()
         {
-            EventHandler<TargetEventArgs> stepFinished = null;
-            stepFinished = (sender, args) =>
-            {
-                Session.TargetStopped -= stepFinished;
-
-                var thread = ThreadManager[args.Thread] ?? ThreadManager.All.First();
-
-                Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])),
-                    MonoStepCompleteEvent.Iid, thread);
-            };
-            Session.TargetStopped += stepFinished;
-
-            Session.Stop();
-            return VSConstants.S_OK;
+            return Program.Break().ToVS();
         }
 
         /// <summary>
@@ -314,33 +282,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int Attach(IDebugProgram2[] programs, IDebugProgramNode2[] rgpProgramNodes, uint celtPrograms,
             IDebugEventCallback2 pCallback, enum_ATTACH_REASON dwReason)
         {
-            var program = programs[0];
-            IDebugProcess2 process;
-            program.GetProcess(out process);
-            Guid processId;
-            process.GetProcessId(out processId);
-            if (processId != _processId.guidProcessId)
-                return VSConstants.S_FALSE;
-
-            EngineUtils.RequireOk(program.GetProgramId(out _programId));
-
-            Task.Run(() =>
-            {
-                _waiter.WaitOne();
-
-                var ipAddress = HostUtils.ResolveHostOrIpAddress("127.0.0.1");
-                Session.Run(new SoftDebuggerStartInfo(new SoftDebuggerConnectArgs("", ipAddress, 6438)),
-                    new DebuggerSessionOptions
-                    {
-                        EvaluationOptions = EvaluationOptions.DefaultOptions,
-                        ProjectAssembliesOnly = false
-                    });
-            });
-
-            MonoEngineCreateEvent.Send(this);
-            SampSharpCreateEvent.Send(this);
-
-            return VSConstants.S_OK;
+            return Program.Attach(programs[0]).ToVS();
         }
 
         #endregion
@@ -354,13 +296,10 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int EnumThreads(out IEnumDebugThreads2 ppEnum)
         {
-            var threads = ThreadManager.All.ToArray();
-
-            var threadObjects = new IDebugThread2[threads.Length];
-            for (var i = 0; i < threads.Length; i++)
-                threadObjects[i] = threads[i];
-
-            ppEnum = new MonoThreadEnumerator(threadObjects);
+            ppEnum = new MonoThreadEnumerator(_threadManager.All
+                .ToArray()
+                .OfType<IDebugThread2>()
+                .ToArray());
 
             return VSConstants.S_OK;
         }
@@ -402,11 +341,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Detach()
         {
-            if (!Session.IsRunning)
-                Session.Continue();
-
-            Session.Dispose();
-            return VSConstants.S_OK;
+            return Program.Detach().ToVS();
         }
 
         /// <summary>
@@ -418,7 +353,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int GetProgramId(out Guid programId)
         {
-            programId = _programId;
+            programId = Program.Id;
             return VSConstants.S_OK;
         }
 
@@ -493,7 +428,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int EnumModules(out IEnumDebugModules2 ppEnum)
         {
-            ppEnum = new MonoModuleEnumerator(new IDebugModule2[] { new MonoModule(this) });
+            ppEnum = new MonoModuleEnumerator(new[] { Program.Module });
             return VSConstants.S_OK;
         }
 
@@ -552,49 +487,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Step(IDebugThread2 thread, enum_STEPKIND kind, enum_STEPUNIT unit)
         {
-            switch (kind)
-            {
-                case enum_STEPKIND.STEP_BACKWARDS:
-                    return VSConstants.E_NOTIMPL;
-            }
-
-            EventHandler<TargetEventArgs> stepFinished = null;
-            stepFinished = (sender, args) =>
-            {
-                Session.TargetStopped -= stepFinished;
-                Send(new MonoStepCompleteEvent(), MonoStepCompleteEvent.Iid, ThreadManager[args.Thread]);
-            };
-            Session.TargetStopped += stepFinished;
-
-            switch (kind)
-            {
-                case enum_STEPKIND.STEP_OVER:
-                    switch (unit)
-                    {
-                        case enum_STEPUNIT.STEP_INSTRUCTION:
-                            Session.NextInstruction();
-                            break;
-                        default:
-                            Session.NextLine();
-                            break;
-                    }
-                    break;
-                case enum_STEPKIND.STEP_INTO:
-                    switch (unit)
-                    {
-                        case enum_STEPUNIT.STEP_INSTRUCTION:
-                            Session.StepInstruction();
-                            break;
-                        default:
-                            Session.StepLine();
-                            break;
-                    }
-                    break;
-                case enum_STEPKIND.STEP_OUT:
-                    Session.Finish();
-                    break;
-            }
-            return VSConstants.S_OK;
+            return Program.Step(kind, unit).ToVS();
         }
 
         /// <summary>
@@ -607,7 +500,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         {
             TEXT_POSITION[] startPosition;
             TEXT_POSITION[] endPosition;
-            var documentName = _breakpointManager.Engine.GetLocationInfo(pDocPos, out startPosition, out endPosition);
+            var documentName = GetLocationInfo(pDocPos, out startPosition, out endPosition);
 
             var textPosition = new TEXT_POSITION { dwLine = startPosition[0].dwLine + 1 };
             var documentContext = new MonoDocumentContext(documentName, textPosition, textPosition, null);
@@ -626,8 +519,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Continue(IDebugThread2 pThread)
         {
-            Session.Continue();
-            return VSConstants.S_OK;
+            return Program.Continue().ToVS();
         }
 
         /// <summary>
@@ -638,12 +530,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int ExecuteOnThread(IDebugThread2 pThread)
         {
-            var monoThread = (MonoThread) pThread;
-            var thread = monoThread.GetDebuggedThread();
-            if (Session.ActiveThread?.Id != thread.Id)
-                thread.SetActive();
-            Session.Continue();
-            return VSConstants.S_OK;
+            return Program.ExecuteOnThread(pThread).ToVS();
         }
 
         #endregion
@@ -679,116 +566,18 @@ namespace SampSharp.VisualStudio.DebugEngine
             string environment, string options, enum_LAUNCH_FLAGS launchFlags, uint standardInput, uint standardOutput,
             uint standardError, IDebugEventCallback2 callback, out IDebugProcess2 process)
         {
-            _waiter = new AutoResetEvent(false);
-
-
-            var outputWindow = (IVsOutputWindow) Package.GetGlobalService(typeof(SVsOutputWindow));
+            var outputWindow = (IVsOutputWindow)Package.GetGlobalService(typeof(SVsOutputWindow));
             var generalPaneGuid = VSConstants.GUID_OutWindowDebugPane;
             outputWindow.GetPane(ref generalPaneGuid, out _outputWindow);
-
-            var serverDir = directory;
-            string serverPath = null;
-            while (!string.IsNullOrWhiteSpace(serverDir))
-            {
-                serverPath = Path.Combine(serverDir, "samp-server.exe");
-
-                if (File.Exists(serverPath))
-                    break;
-                serverPath = null;
-                serverDir = Directory.GetParent(serverDir)?.FullName;
-            }
-
-            if (serverPath == null)
-            {
-                // TODO: Error not appearing...
-                _outputWindow.Log(VsLogSeverity.Error, "", "",
-                    "Could not locate samp-server.exe. Are you sure you are building into the gamemode directory?");
-
-                _processId = new AD_PROCESS_ID
-                {
-                    ProcessIdType = (uint) enum_AD_PROCESS_ID.AD_PROCESS_ID_GUID,
-                    guidProcessId = Guid.NewGuid()
-                };
-
-                EngineUtils.CheckOk(port.GetProcess(_processId, out process));
-                Callback = callback;
-
-                return VSConstants.S_FALSE;
-            }
-
-            Task.Run(() =>
-            {
-                var proc = Process.Start(new ProcessStartInfo
-                {
-                    FileName = serverPath,
-                    WorkingDirectory = serverDir,
-                    UseShellExecute = false
-                });
-
-                Debug.WriteLine(proc);
-                // Trigger that the app is now running for whomever might be waiting for that signal
-                _waiter.Set();
-            });
-
-            Session = new SoftDebuggerSession();
-            Session.TargetReady += (sender, eventArgs) =>
-            {
-                Log($"TargetReady {eventArgs}");
-                var activeThread = Session.ActiveThread;
-                ThreadManager.Add(activeThread, new MonoThread(this, activeThread));
-            };
-            Session.ExceptionHandler = exception => true;
-            Session.TargetExited += (sender, x) =>
-            {
-                Log($"TargetExited {x}");
-                Send(new SampSharpDestroyEvent((uint?) x.ExitCode ?? 0), SampSharpDestroyEvent.Iid, null);
-            };
-            Session.TargetUnhandledException += (sender, x) => Log("TargetUnhandledException" + x.Backtrace.ToString());
-            Session.LogWriter = (stderr, text) => Log($"LogWriter {text}");
-            Session.OutputWriter = (stderr, text) => Log($"OutputWriter {text}");
-            Session.TargetThreadStarted += (sender, x) =>
-            {
-                Log($"TargetThreadStarted {x}");
-                ThreadManager.Add(x.Thread, new MonoThread(this, x.Thread));
-            };
-            Session.TargetThreadStopped += (sender, x) =>
-            {
-                Log($"TargetThreadStopped {x}");
-                ThreadManager.Remove(x.Thread);
-            };
-            Session.TargetStopped += (sender, x) => Log($"TargetStopped {x}");
-            Session.TargetStarted += (sender, x) => Log($"TargetStarted {x}");
-            Session.TargetSignaled += (sender, x) => Log($"TargetSignaled {x}");
-            Session.TargetInterrupted += (sender, x) => Log($"TargetInterrupted {x}");
-            Session.TargetExceptionThrown += (sender, x) =>
-            {
-                Log($"TargetStopped {x}");
-                Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])),
-                    MonoStepCompleteEvent.Iid,
-                    ThreadManager[x.Thread]);
-            };
-            Session.TargetHitBreakpoint += (sender, x) =>
-            {
-                Log($"TargetStopped {x}");
-
-                var breakpoint = x.BreakEvent as Breakpoint;
-                var pendingBreakpoint = _breakpointManager[breakpoint];
-                if (pendingBreakpoint != null)
-                    Send(
-                        new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(pendingBreakpoint.BoundBreakpoints)),
-                        MonoBreakpointEvent.Iid, ThreadManager[x.Thread]);
-            };
-
-            _processId = new AD_PROCESS_ID
-            {
-                ProcessIdType = (uint) enum_AD_PROCESS_ID.AD_PROCESS_ID_GUID,
-                guidProcessId = Guid.NewGuid()
-            };
-
-            EngineUtils.CheckOk(port.GetProcess(_processId, out process));
             Callback = callback;
 
-            return VSConstants.S_OK;
+           return Program.LaunchSuspended(port, args, directory, callback, out process).ToVS();
+        }
+
+        public void Log(VsLogSeverity severity, string project, string file,
+            string consoleMessage, int lineNumber = 0, int column = 0)
+        {
+            _outputWindow.Log(severity, project, file, consoleMessage, lineNumber, column);
         }
 
         /// <summary>
@@ -805,7 +594,7 @@ namespace SampSharp.VisualStudio.DebugEngine
             IDebugPortNotify2 portNotify;
             EngineUtils.RequireOk(defaultPort.GetPortNotify(out portNotify));
 
-            EngineUtils.RequireOk(portNotify.AddProgramNode(new MonoProgramNode(_processId)));
+            EngineUtils.RequireOk(portNotify.AddProgramNode(Program.Node));
 
             return VSConstants.S_OK;
         }
@@ -828,8 +617,6 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int TerminateProcess(IDebugProcess2 pProcess)
         {
-            Log("TerminateProcess");
-
             pProcess.Terminate();
             Send(new SampSharpDestroyEvent(0), SampSharpDestroyEvent.Iid, null);
             return VSConstants.S_OK;
