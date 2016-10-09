@@ -249,7 +249,7 @@ namespace SampSharp.VisualStudio.Projects
             var dteProject = GetDteProject(_project);
             var monoDirectory = this[SampSharpPropertyPage.MonoDirectory];
             outputPane.Log($"Mono runtime path: {monoDirectory}.");
-
+            
             var projectFolder = Path.GetDirectoryName(dteProject.FullName);
 
             if (projectFolder == null)
@@ -309,7 +309,11 @@ namespace SampSharp.VisualStudio.Projects
             if (projectDirectory == null)
                 throw new Exception("projectDirectory is null");
 
-            // xbuild
+//            CompileProject(projectFile, dir);
+//
+//            return E_ABORT;
+
+            // XBuild the project.
             var startInfo = new ProcessStartInfo
             {
                 Arguments = "\"" + Path.GetFileName(projectFile) + "\"",
@@ -321,7 +325,6 @@ namespace SampSharp.VisualStudio.Projects
                 RedirectStandardError = true
             };
 
-            // XBuild the project.
             outputPane.Log("Starting XBuild with arguments: " + startInfo.Arguments);
 
             var process = new Process { StartInfo = startInfo };
@@ -358,6 +361,12 @@ namespace SampSharp.VisualStudio.Projects
             
             UpdateBuildStatus(1);
             return S_OK;
+        }
+
+
+        private static bool CompileProject(string projectFilePath, string outputDir)
+        {
+            throw new NotImplementedException();
         }
 
         public int StartClean(IVsOutputWindowPane outputPane, uint dwOptions)
@@ -495,36 +504,43 @@ namespace SampSharp.VisualStudio.Projects
 
         public int DebugLaunch(uint grfLaunch)
         {
-            var dteProject = GetDteProject(_project);
-            var projectFolder = Path.GetDirectoryName(dteProject.FullName);
+            try
+            {
+                var dteProject = GetDteProject(_project);
+                var projectFolder = Path.GetDirectoryName(dteProject.FullName);
 
-            if (projectFolder == null)
-                throw new Exception("projectFolder is null");
+                if (projectFolder == null)
+                    throw new Exception("projectFolder is null");
 
-            var projectConfiguration = dteProject.ConfigurationManager.ActiveConfiguration;
-            var dir =
-                Path.GetDirectoryName(Path.Combine(projectFolder,
-                    projectConfiguration.Properties.Item("OutputPath").Value.ToString()));
+                var projectConfiguration = dteProject.ConfigurationManager.ActiveConfiguration;
+                var dir =
+                    Path.GetDirectoryName(Path.Combine(projectFolder,
+                        projectConfiguration.Properties.Item("OutputPath").Value.ToString()));
 
-            if (dir == null)
-                throw new Exception("dir is null");
+                if (dir == null)
+                    throw new Exception("dir is null");
 
-            var fileName = dteProject.Properties.Item("OutputFileName").Value.ToString();
+                var fileName = dteProject.Properties.Item("OutputFileName").Value.ToString();
 
-            var outputFile = Path.Combine(dir, fileName);
+                var outputFile = Path.Combine(dir, fileName);
 
-            // ReSharper disable once SuspiciousTypeConversion.Global
-            var debugger = (IVsDebugger4) _project.Package.GetGlobalService<IVsDebugger>();
-            var debugTargets = new VsDebugTargetInfo4[1];
-            debugTargets[0].LaunchFlags = grfLaunch;
-            debugTargets[0].dlo = (uint) DEBUG_LAUNCH_OPERATION.DLO_CreateProcess;
-            debugTargets[0].bstrExe = outputFile;
-            debugTargets[0].guidLaunchDebugEngine = Guids.EngineIdGuid;
+                // ReSharper disable once SuspiciousTypeConversion.Global
+                var debugger = (IVsDebugger4) _project.Package.GetGlobalService<IVsDebugger>();
+                var debugTargets = new VsDebugTargetInfo4[1];
+                debugTargets[0].LaunchFlags = grfLaunch;
+                debugTargets[0].dlo = (uint) DEBUG_LAUNCH_OPERATION.DLO_CreateProcess;
+                debugTargets[0].bstrExe = outputFile;
+                debugTargets[0].guidLaunchDebugEngine = Guids.EngineIdGuid;
 
-            var processInfo = new VsDebugTargetProcessInfo[debugTargets.Length];
-            debugger.LaunchDebugTargets4(1, debugTargets, processInfo);
+                var processInfo = new VsDebugTargetProcessInfo[debugTargets.Length];
+                debugger.LaunchDebugTargets4(1, debugTargets, processInfo);
 
-            return S_OK;
+                return S_OK;
+            }
+            catch
+            {
+                return E_ABORT;
+            }
         }
 
         public int QueryDebugLaunch(uint grfLaunch, out int pfCanLaunch)

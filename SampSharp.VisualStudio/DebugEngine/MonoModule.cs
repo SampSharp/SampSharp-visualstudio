@@ -29,11 +29,13 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             if ((dwFields & enum_MODULE_INFO_FIELDS.MIF_NAME) != 0)
             {
+                // todo: get path to entry dll
                 info.m_bstrName = Path.GetFileName(_program.Session.VirtualMachine.RootDomain.GetEntryAssembly().Location);
                 info.dwValidFields |= enum_MODULE_INFO_FIELDS.MIF_NAME;
             }
             if ((dwFields & enum_MODULE_INFO_FIELDS.MIF_URL) != 0)
             {
+                // todo: get path to entry dll
                 info.m_bstrUrl = _program.Session.VirtualMachine.RootDomain.GetEntryAssembly().Location;
                 info.dwValidFields |= enum_MODULE_INFO_FIELDS.MIF_URL;
             }

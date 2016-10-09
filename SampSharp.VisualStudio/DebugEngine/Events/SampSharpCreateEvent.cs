@@ -9,7 +9,7 @@ namespace SampSharp.VisualStudio.DebugEngine.Events
         internal static void Send(MonoEngine engine)
         {
             var eventObject = new SampSharpCreateEvent();
-            engine.Send(eventObject, Iid, null);
+            engine.Callback.Send(eventObject, Iid, null);
         }
     }
 }

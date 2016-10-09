@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -6,11 +7,11 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Debugger.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Mono.Debugging.Soft;
 using SampSharp.VisualStudio.DebugEngine.Enumerators;
 using SampSharp.VisualStudio.DebugEngine.Events;
 using SampSharp.VisualStudio.Debugger;
 using SampSharp.VisualStudio.Utils;
+using static Microsoft.VisualStudio.VSConstants;
 
 namespace SampSharp.VisualStudio.DebugEngine
 {
@@ -20,15 +21,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         private readonly MonoThreadManager _threadManager;
         private IVsOutputWindowPane _outputWindow;
 
-        public MonoEngine() {
+        public MonoEngine()
+        {
             var breakpointManager = new MonoBreakpointManager(this);
             _threadManager = new MonoThreadManager(this);
-            
+
             Program = new DebuggedProgram(this, breakpointManager, _threadManager);
         }
-
-        public IDebugEventCallback2 Callback { get; private set; }
-
+        
+        public MonoCallback Callback { get; private set; }
         public DebuggedProgram Program { get; }
 
         #region Implementation of IDebugSymbolSettings100
@@ -47,7 +48,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetSymbolLoadState(int isManual, int loadAdjacentSymbols, string includeList, string excludeList)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         #endregion
@@ -112,30 +113,28 @@ namespace SampSharp.VisualStudio.DebugEngine
             Console.WriteLine(message);
             _outputWindow.OutputString(message + "\r\n");
         }
-
-        /// <summary>
-        ///     Sends an event to the callback.
-        /// </summary>
-        /// <param name="event"></param>
-        /// <param name="eventId"></param>
-        /// <param name="program"></param>
-        /// <param name="thread"></param>
-        public void Send(IDebugEvent2 @event, string eventId, IDebugProgram2 program, IDebugThread2 thread)
+        
+        public void Log(VsLogSeverity severity, string project, string file,
+            string consoleMessage, int lineNumber = 0, int column = 0)
         {
-            Callback.Send(this, @event, eventId, program, thread);
+            _outputWindow.Log(severity, project, file, consoleMessage, lineNumber, column);
         }
 
-        /// <summary>
-        ///     Sends an event to the callback.
-        /// </summary>
-        /// <param name="event"></param>
-        /// <param name="eventId"></param>
-        /// <param name="thread"></param>
-        public void Send(IDebugEvent2 @event, string eventId, IDebugThread2 thread)
+        private void OnStartDebuggingFailed(Exception exception)
         {
-            Send(@event, eventId, this, thread);
-        }
+            if (exception is OperationCanceledException)
+            {
+                return; // don't show a message in this case
+            }
 
+            var message = exception.Message;
+
+            var initializationException = exception as DebuggerInitializeException;
+            if (initializationException != null)
+                HostOutputWindow.WriteLaunchError(message + Environment.NewLine);
+
+            Callback.OnErrorImmediate(message);
+        }
         #endregion
 
         #region Implementation of IDebugEngine2
@@ -151,9 +150,17 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int CreatePendingBreakpoint(IDebugBreakpointRequest2 request,
             out IDebugPendingBreakpoint2 pendingBreakpoint)
         {
-            pendingBreakpoint = Program.CreatePendingBreakpoint(request);
+            try
+            {
+                pendingBreakpoint = Program.CreatePendingBreakpoint(request);
+            }
+            catch
+            {
+                pendingBreakpoint = null;
+                return E_FAIL;
+            }
 
-            return (pendingBreakpoint != null).ToVS();
+            return E_FAIL;
         }
 
         /// <summary>
@@ -164,7 +171,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetException(EXCEPTION_INFO[] pException)
         {
-            return Program.SetException(pException[0]).ToVS();
+            try
+            {
+                Program.SetException(pException[0]);
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -173,7 +188,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int RemoveSetException(EXCEPTION_INFO[] pException)
         {
-            return Program.RemoveSetException(pException[0]).ToVS();
+            try
+            {
+                Program.RemoveSetException(pException[0]);
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -183,7 +206,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int RemoveAllSetExceptions(ref Guid guidType)
         {
-            return Program.RemoveAllSetExceptions().ToVS();
+            try
+            {
+                Program.RemoveAllSetExceptions();
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -194,7 +225,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int GetEngineId(out Guid engineGuid)
         {
             engineGuid = Guids.EngineIdGuid;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -205,7 +236,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int DestroyProgram(IDebugProgram2 pProgram)
         {
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -220,7 +251,7 @@ namespace SampSharp.VisualStudio.DebugEngine
             if (@event is SampSharpDestroyEvent)
                 Program.Dispose();
 
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -232,7 +263,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetLocale(ushort languageId)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -244,7 +275,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetRegistryRoot(string registryRoot)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -256,7 +287,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int SetMetric(string metric, object value)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -267,7 +298,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CauseBreak()
         {
-            return Program.Break().ToVS();
+            try
+            {
+                Program.Break();
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -282,7 +321,16 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int Attach(IDebugProgram2[] programs, IDebugProgramNode2[] rgpProgramNodes, uint celtPrograms,
             IDebugEventCallback2 pCallback, enum_ATTACH_REASON dwReason)
         {
-            return Program.Attach(programs[0]).ToVS();
+            try
+            {
+                Program.Attach(programs[0]);
+                return S_OK;
+            }
+            catch (Exception e)
+            {
+                OnStartDebuggingFailed(e);
+                return E_FAIL;
+            }
         }
 
         #endregion
@@ -301,7 +349,7 @@ namespace SampSharp.VisualStudio.DebugEngine
                 .OfType<IDebugThread2>()
                 .ToArray());
 
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -313,7 +361,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int GetName(out string programName)
         {
             programName = null;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -322,7 +370,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Terminate()
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -331,7 +379,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CanDetach()
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -341,7 +389,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Detach()
         {
-            return Program.Detach().ToVS();
+            try
+            {
+                Program.Detach();
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -354,7 +410,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int GetProgramId(out Guid programId)
         {
             programId = Program.Id;
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -373,7 +429,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         {
             ppProperty = null;
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -388,7 +444,7 @@ namespace SampSharp.VisualStudio.DebugEngine
             pbstrEngine = null;
             pguidEngine = Guid.Empty;
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -402,7 +458,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         {
             ppMemoryBytes = null;
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -418,7 +474,7 @@ namespace SampSharp.VisualStudio.DebugEngine
             out IDebugDisassemblyStream2 ppDisassemblyStream)
         {
             ppDisassemblyStream = null;
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -429,7 +485,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int EnumModules(out IEnumDebugModules2 ppEnum)
         {
             ppEnum = new MonoModuleEnumerator(new[] { Program.Module });
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -441,7 +497,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int GetENCUpdate(out object ppUpdate)
         {
             ppUpdate = null;
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -460,7 +516,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         {
             pathEnum = null;
             safetyContext = null;
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         /// <summary>
@@ -471,7 +527,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int WriteDump(enum_DUMPTYPE dumptype, string pszDumpUrl)
         {
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         #endregion
@@ -487,7 +543,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Step(IDebugThread2 thread, enum_STEPKIND kind, enum_STEPUNIT unit)
         {
-            return Program.Step(kind, unit).ToVS();
+            try
+            {
+                Program.Step(kind, unit);
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -504,10 +568,9 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             var textPosition = new TEXT_POSITION { dwLine = startPosition[0].dwLine + 1 };
             var documentContext = new MonoDocumentContext(documentName, textPosition, textPosition, null);
-            ppEnum =
-                new MonoCodeContextEnumerator(new IDebugCodeContext2[]
-                    { new MonoMemoryAddress(this, 0, documentContext) });
-            return VSConstants.S_OK;
+            ppEnum = new MonoCodeContextEnumerator(new IDebugCodeContext2[]
+                { new MonoMemoryAddress(this, 0, documentContext) });
+            return S_OK;
         }
 
         /// <summary>
@@ -519,7 +582,16 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int Continue(IDebugThread2 pThread)
         {
-            return Program.Continue().ToVS();
+            try
+            {
+                Program.Continue();
+
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         /// <summary>
@@ -530,7 +602,15 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int ExecuteOnThread(IDebugThread2 pThread)
         {
-            return Program.ExecuteOnThread(pThread).ToVS();
+            try
+            {
+                Program.ExecuteOnThread(pThread);
+                return S_OK;
+            }
+            catch
+            {
+                return E_FAIL;
+            }
         }
 
         #endregion
@@ -566,19 +646,25 @@ namespace SampSharp.VisualStudio.DebugEngine
             string environment, string options, enum_LAUNCH_FLAGS launchFlags, uint standardInput, uint standardOutput,
             uint standardError, IDebugEventCallback2 callback, out IDebugProcess2 process)
         {
-            var outputWindow = (IVsOutputWindow)Package.GetGlobalService(typeof(SVsOutputWindow));
-            var generalPaneGuid = VSConstants.GUID_OutWindowDebugPane;
+            var outputWindow = (IVsOutputWindow) Package.GetGlobalService(typeof(SVsOutputWindow));
+            var generalPaneGuid = GUID_OutWindowDebugPane;
             outputWindow.GetPane(ref generalPaneGuid, out _outputWindow);
-            Callback = callback;
+            
+            Callback = new MonoCallback(callback, this);
+            try
+            {
+                Program.LaunchSuspended(port, args, directory, out process);
 
-           return Program.LaunchSuspended(port, args, directory, callback, out process).ToVS();
+                return S_OK;
+            }
+            catch (Exception e)
+            {
+                OnStartDebuggingFailed(e);
+                process = null;
+                return E_ABORT;
+            }
         }
 
-        public void Log(VsLogSeverity severity, string project, string file,
-            string consoleMessage, int lineNumber = 0, int column = 0)
-        {
-            _outputWindow.Log(severity, project, file, consoleMessage, lineNumber, column);
-        }
 
         /// <summary>
         ///     Resume a process launched by IDebugEngineLaunch2.LaunchSuspended
@@ -596,7 +682,7 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             EngineUtils.RequireOk(portNotify.AddProgramNode(Program.Node));
 
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -606,7 +692,7 @@ namespace SampSharp.VisualStudio.DebugEngine
         /// <returns>If successful, returns S_OK; otherwise, returns an error code.</returns>
         public int CanTerminateProcess(IDebugProcess2 pProcess)
         {
-            return VSConstants.S_OK;
+            return S_OK;
         }
 
         /// <summary>
@@ -618,8 +704,8 @@ namespace SampSharp.VisualStudio.DebugEngine
         public int TerminateProcess(IDebugProcess2 pProcess)
         {
             pProcess.Terminate();
-            Send(new SampSharpDestroyEvent(0), SampSharpDestroyEvent.Iid, null);
-            return VSConstants.S_OK;
+            Callback.Send(new SampSharpDestroyEvent(0), SampSharpDestroyEvent.Iid, null);
+            return S_OK;
         }
 
         #endregion
@@ -632,14 +718,14 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             Debug.Fail("This function is not called by the debugger");
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         public int Attach(IDebugEventCallback2 pCallback)
         {
             Debug.Fail("This function is not called by the debugger");
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         public int GetProcess(out IDebugProcess2 process)
@@ -648,14 +734,14 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             Debug.Fail("This function is not called by the debugger");
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         public int Execute()
         {
             Debug.Fail("This function is not called by the debugger");
 
-            return VSConstants.E_NOTIMPL;
+            return E_NOTIMPL;
         }
 
         #endregion

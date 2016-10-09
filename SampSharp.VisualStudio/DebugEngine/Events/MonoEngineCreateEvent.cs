@@ -33,7 +33,7 @@ namespace SampSharp.VisualStudio.DebugEngine.Events
         public static void Send(MonoEngine engine)
         {
             var eventObject = new MonoEngineCreateEvent(engine);
-            engine.Send(eventObject, Iid, null, null);
+            engine.Callback.Send(eventObject, Iid, null, null);
         }
     }
 }

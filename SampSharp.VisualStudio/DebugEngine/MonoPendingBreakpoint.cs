@@ -92,7 +92,7 @@ namespace SampSharp.VisualStudio.DebugEngine
                 var boundBreakpoint = new MonoBoundBreakpoint(this, breakpointResolution);
                 _boundBreakpoints.Add(boundBreakpoint);
 
-                engine.Send(new MonoBreakpointBoundEvent(this, boundBreakpoint), MonoBreakpointBoundEvent.Iid, null);
+                engine.Callback.Send(new MonoBreakpointBoundEvent(this, boundBreakpoint), MonoBreakpointBoundEvent.Iid, null);
             }
 
             return S_OK;

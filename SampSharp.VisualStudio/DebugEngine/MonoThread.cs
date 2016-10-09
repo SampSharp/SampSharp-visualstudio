@@ -234,7 +234,7 @@ namespace SampSharp.VisualStudio.DebugEngine
                 // {
                 _engine.Program.Session.TargetStopped -= stepFinished;
                 //     waiter.Set();
-                //     engine.Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])), MonoStepCompleteEvent.IID, engine.ThreadManager[args.Thread]);
+                //     engine.Send(new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])), MonoStepCompleteEvent.Iid, engine.ThreadManager[args.Thread]);
                 // }
                 // else
                 // {

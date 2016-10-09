@@ -39,7 +39,7 @@ namespace SampSharp.VisualStudio.DebugEngine
                 {
                     IDebugProperty2 result;
                     EvaluateSync(flags, uint.MaxValue, callback, out result);
-                    callback = new MonoCallbackWrapper(callback ?? _engine.Callback);
+                    callback = new MonoCallbackWrapper(callback ?? _engine.Callback.Callback);
                     callback.Send(_engine, new MonoExpressionCompleteEvent(_engine, _thread, _value, Expression),
                         MonoExpressionCompleteEvent.Iid, _thread);
                 },
