@@ -35,6 +35,8 @@ namespace SampSharp.VisualStudio.ProgramProperties
             this.browseRuntimeDirectoryButton = new System.Windows.Forms.Button();
             this.monoLocationTextBox = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
+            this.gameModeTextBox = new System.Windows.Forms.TextBox();
+            this.label2 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -49,6 +51,8 @@ namespace SampSharp.VisualStudio.ProgramProperties
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.gameModeTextBox);
+            this.groupBox1.Controls.Add(this.label2);
             this.groupBox1.Controls.Add(this.browseRuntimeDirectoryButton);
             this.groupBox1.Controls.Add(this.monoLocationTextBox);
             this.groupBox1.Controls.Add(this.label3);
@@ -88,6 +92,23 @@ namespace SampSharp.VisualStudio.ProgramProperties
             this.label3.TabIndex = 2;
             this.label3.Text = "Mono Runtime Directory:";
             // 
+            // gameModeTextBox
+            // 
+            this.gameModeTextBox.Location = new System.Drawing.Point(14, 98);
+            this.gameModeTextBox.Name = "gameModeTextBox";
+            this.gameModeTextBox.Size = new System.Drawing.Size(314, 20);
+            this.gameModeTextBox.TabIndex = 8;
+            this.gameModeTextBox.Text = "GameMode";
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(14, 82);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(118, 13);
+            this.label2.TabIndex = 7;
+            this.label2.Text = "Game Mode Entrypoint:";
+            // 
             // SampSharpPropertiesView
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -110,5 +131,7 @@ namespace SampSharp.VisualStudio.ProgramProperties
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.TextBox monoLocationTextBox;
         private System.Windows.Forms.Button browseRuntimeDirectoryButton;
+        private System.Windows.Forms.TextBox gameModeTextBox;
+        private System.Windows.Forms.Label label2;
     }
 }

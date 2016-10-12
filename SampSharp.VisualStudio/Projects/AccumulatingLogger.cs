@@ -63,7 +63,7 @@ namespace SampSharp.VisualStudio.Projects
         private string GetProjectIdentifier()
         {
             var id = _currentProject;
-            if (_currentProject.StartsWith(_solutionPath))
+            if (_currentProject != null && _currentProject.StartsWith(_solutionPath))
                 id = _currentProject.Substring(_solutionPath.Length);
 
             return id;

@@ -11,6 +11,8 @@ using Mono.Debugging.Soft;
 using SampSharp.VisualStudio.DebugEngine;
 using SampSharp.VisualStudio.DebugEngine.Enumerators;
 using SampSharp.VisualStudio.DebugEngine.Events;
+using SampSharp.VisualStudio.ProgramProperties;
+using SampSharp.VisualStudio.Projects;
 using SampSharp.VisualStudio.Utils;
 
 namespace SampSharp.VisualStudio.Debugger
@@ -105,7 +107,7 @@ namespace SampSharp.VisualStudio.Debugger
             Session.Stop();
         }
 
-        public void LaunchSuspended(IDebugPort2 port, string args, string directory, out IDebugProcess2 process)
+        public void LaunchSuspended(IDebugPort2 port, string args, string gameMode, string exe, string directory, out IDebugProcess2 process)
         {
             _waiter = new AutoResetEvent(false);
             
@@ -124,7 +126,11 @@ namespace SampSharp.VisualStudio.Debugger
                     FileName = Path.Combine(ServerPath, "samp-server.exe"),
                     WorkingDirectory = ServerPath,
                     UseShellExecute = false,
-                    EnvironmentVariables = { ["debugger_address"] = DebuggerAddress.ToString() }
+                    EnvironmentVariables =
+                    {
+                        ["debugger_address"] = DebuggerAddress.ToString(),
+                        ["gamemode"] = $"{Path.GetFileNameWithoutExtension(exe)}:{gameMode}"
+                    }
                 });
                 
                 // Trigger that the app is now running for whomever might be waiting for that signal

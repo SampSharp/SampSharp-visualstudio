@@ -7,6 +7,7 @@ namespace SampSharp.VisualStudio.ProgramProperties
     public class SampSharpPropertyPage : PropertyPage
     {
         public const string MonoDirectory = "MonoDirectory";
+        public const string GameMode = "GameMode";
 
         protected override string HelpKeyword => string.Empty;
         public override string Title => "SampSharp";

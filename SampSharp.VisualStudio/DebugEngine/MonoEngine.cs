@@ -653,7 +653,7 @@ namespace SampSharp.VisualStudio.DebugEngine
             Callback = new MonoCallback(callback, this);
             try
             {
-                Program.LaunchSuspended(port, args, directory, out process);
+                Program.LaunchSuspended(port, args, options, exe, directory, out process);
 
                 return S_OK;
             }

@@ -23,11 +23,7 @@ namespace SampSharp.VisualStudio.ProgramProperties
         public override void Initialize(Control parentControl, Rectangle rectangle)
         {
             InitializeComponent();
-
-            monoLocationTextBox.TextChanged += (sender, args) => {
-                Debug.WriteLine("Text changed!");
-            };
-
+            
             base.Initialize(parentControl, rectangle);
         }
 
@@ -55,6 +51,7 @@ namespace SampSharp.VisualStudio.ProgramProperties
 
                     // Add two Property Name / Control KeyValuePairs. 
                     _propertyControlTable.Add(SampSharpPropertyPage.MonoDirectory, monoLocationTextBox);
+                    _propertyControlTable.Add(SampSharpPropertyPage.GameMode, gameModeTextBox);
                 }
                 return _propertyControlTable;
             }

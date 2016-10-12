@@ -60,7 +60,11 @@ namespace SampSharp.VisualStudio.Projects
             IntPtr baseDebugConfigurationPtr;
             innerProjectFlavorConfig.get_CfgType(ref debugGuid, out baseDebugConfigurationPtr);
             _baseDebugConfiguration = (IVsDebuggableProjectCfg) Marshal.GetObjectForIUnknown(baseDebugConfigurationPtr);
+
+            Instance = this;
         }
+        
+        public static SampSharpFlavorConfig Instance { get; private set; }
 
         /// <summary>
         ///     Get or set a property value.
@@ -76,6 +80,8 @@ namespace SampSharp.VisualStudio.Projects
                     {
                         case SampSharpPropertyPage.MonoDirectory:
                             return @"..\..\env\mono";
+                        case SampSharpPropertyPage.GameMode:
+                            return "GameMode";
                     }
                 return value;
             }
@@ -91,8 +97,7 @@ namespace SampSharp.VisualStudio.Projects
                 _propertiesList.Add(propertyName, value);
             }
         }
-
-
+        
         private static string MakeAbsolutePath(string path, string root)
         {
             return Path.IsPathRooted(path) ? path : Path.Combine(root, path);
@@ -636,6 +641,7 @@ namespace SampSharp.VisualStudio.Projects
                 debugTargets[0].dlo = (uint) DEBUG_LAUNCH_OPERATION.DLO_CreateProcess;
                 debugTargets[0].bstrExe = outputFile;
                 debugTargets[0].guidLaunchDebugEngine = Guids.EngineIdGuid;
+                debugTargets[0].bstrOptions = this[SampSharpPropertyPage.GameMode];
 
                 var processInfo = new VsDebugTargetProcessInfo[debugTargets.Length];
                 debugger.LaunchDebugTargets4(1, debugTargets, processInfo);
