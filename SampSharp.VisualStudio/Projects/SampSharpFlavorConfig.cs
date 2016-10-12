@@ -5,14 +5,15 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Xml;
-using EnvDTE;
+using Microsoft.Build.Evaluation;
+using Microsoft.Build.Execution;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell.Interop;
 using SampSharp.VisualStudio.DebugEngine;
 using SampSharp.VisualStudio.ProgramProperties;
 using SampSharp.VisualStudio.Utils;
 using static Microsoft.VisualStudio.VSConstants;
-using Process = System.Diagnostics.Process;
+using Project = EnvDTE.Project;
 
 namespace SampSharp.VisualStudio.Projects
 {
@@ -62,7 +63,7 @@ namespace SampSharp.VisualStudio.Projects
         }
 
         /// <summary>
-        ///     Get or set a Property.
+        ///     Get or set a property value.
         /// </summary>
         public string this[string propertyName]
         {
@@ -90,6 +91,215 @@ namespace SampSharp.VisualStudio.Projects
                 _propertiesList.Add(propertyName, value);
             }
         }
+
+
+        private static string MakeAbsolutePath(string path, string root)
+        {
+            return Path.IsPathRooted(path) ? path : Path.Combine(root, path);
+        }
+
+        public bool BuildProject(IVsOutputWindowPane outputPanel)
+        {
+            var dteProject = GetDteProject();
+            var activeConfiguration = dteProject.ConfigurationManager.ActiveConfiguration;
+
+            var projectPath = dteProject.FullName;
+            var projectDirectory = Path.GetDirectoryName(projectPath);
+
+            var outputPath = activeConfiguration.Properties.Item("OutputPath").Value.ToString();
+            var outputDirectory = Path.GetDirectoryName(MakeAbsolutePath(outputPath, projectDirectory));
+
+            // Compute solution path by removing the unique name of the project from the project path.
+            var solutionPath = string.Empty;
+
+            if (dteProject.FullName.EndsWith(dteProject.UniqueName))
+                solutionPath = dteProject.FullName.Substring(0,
+                    dteProject.FullName.Length - dteProject.UniqueName.Length);
+
+            // Expecting no build running... But somehow a build is running, just end it and then start our own.
+            BuildManager.DefaultBuildManager.EndBuild();
+
+            var logger = new AccumulatingLogger(solutionPath);
+
+            // Build the project.
+            var project = ProjectCollection.GlobalProjectCollection
+                .LoadProject(projectPath);
+
+            var result = project.Build(logger);
+
+            foreach (var item in project.GetItems("Reference"))
+            {
+                var hintPath = item.GetMetadataValue("HintPath");
+
+                if (string.IsNullOrWhiteSpace(hintPath))
+                {
+                    continue;
+                }
+
+                var fromPath = MakeAbsolutePath(hintPath, projectDirectory);
+
+                if (!File.Exists(fromPath))
+                {
+                    continue;
+                }
+
+                var toPath = Path.Combine(outputDirectory, Path.GetFileName(fromPath));
+
+                File.Copy(fromPath, toPath, true);
+            }
+
+            // Output accumulated log messages.
+            logger.Flush(outputPanel);
+
+            return result;
+        }
+
+        private bool ConvertSymbols(IVsOutputWindowPane outputPane)
+        {
+            // Compute some paths
+            var dteProject = GetDteProject();
+            var activeConfiguration = dteProject.ConfigurationManager.ActiveConfiguration;
+
+            var projectDirectory = Path.GetDirectoryName(dteProject.FullName);
+
+            var outputPath = activeConfiguration.Properties.Item("OutputPath").Value.ToString();
+            var outputDirectory = Path.GetDirectoryName(MakeAbsolutePath(outputPath, projectDirectory));
+
+            var monoDirectory = MakeAbsolutePath(this[SampSharpPropertyPage.MonoDirectory], projectDirectory);
+            var monoPath = Path.Combine(monoDirectory, @"bin\mono.exe");
+            var pdb2MdbPath = Path.Combine(monoDirectory, @"lib\mono\4.5\pdb2mdb.exe");
+
+            outputPane.Log($"Mono runtime path: {monoDirectory}.");
+
+            // Perform some path validity checks.
+            if (string.IsNullOrWhiteSpace(outputDirectory) || !Directory.Exists(outputDirectory))
+            {
+                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName, "Missing output directory.");
+                UpdateBuildStatus(false);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(monoDirectory) || !Directory.Exists(monoDirectory))
+            {
+                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName, "You must set up the mono runtime directory on the 'SampSharp' project property page.");
+                UpdateBuildStatus(false);
+                return false;
+            }
+
+            if (!File.Exists(monoPath))
+            {
+                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
+                    "mono is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
+                UpdateBuildStatus(false);
+                return false;
+            }
+
+            if (!File.Exists(pdb2MdbPath))
+            {
+                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
+                    "Error: pdb2mdb is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
+                UpdateBuildStatus(false);
+                return false;
+            }
+
+            foreach (var pdbPath in Directory.GetFiles(outputDirectory, "*.pdb"))
+            {
+                var dllPath = Path.Combine(Path.GetDirectoryName(pdbPath) ?? string.Empty,
+                    $"{Path.GetFileNameWithoutExtension(pdbPath)}.dll");
+
+                var mdbPath = $"{dllPath}.mdb";
+
+                if (!File.Exists(dllPath))
+                {
+                    continue;
+                }
+
+                var hasBeenModified = !File.Exists(mdbPath);
+
+                if (!hasBeenModified)
+                {
+                    var mdbDate = File.GetLastWriteTime(mdbPath);
+                    var pdbDate = File.GetLastWriteTime(pdbPath);
+
+                    hasBeenModified = pdbDate - mdbDate > new TimeSpan(0);
+                }
+
+                if (!hasBeenModified)
+                    continue;
+
+                outputPane.Log($"pdb2mdb> Converting symbols for {dllPath}");
+                ConvertSymbols(outputPane, monoPath, pdb2MdbPath, outputDirectory, dllPath);
+            }
+            
+            return true;
+        }
+
+        private static void ConvertSymbols(IVsOutputWindowPane outputPane, string monoPath, string pdb2MdbPath,
+            string outputDirectory, string filePath)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                Arguments = "\"" + pdb2MdbPath + "\" \"" + filePath + "\"",
+                WorkingDirectory = outputDirectory,
+                CreateNoWindow = true,
+                FileName = monoPath,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            
+            var process = new Process { StartInfo = startInfo };
+            process.OutputDataReceived += (sender, args) =>
+            {
+                if (!string.IsNullOrWhiteSpace(args.Data))
+                    outputPane.Log($"pdb2mdb> {args.Data}");
+            };
+            process.ErrorDataReceived += (sender, args) =>
+            {
+                if (!string.IsNullOrWhiteSpace(args.Data))
+                    outputPane.Log($"pdb2mdb> ERROR: {args.Data}");
+            };
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            process.WaitForExit();
+        }
+
+        internal static SampSharpFlavorConfig GetSampSharpFlavorCfgFromVsCfg(IVsCfg configuration)
+        {
+            if (Configs.ContainsKey(configuration))
+                return Configs[configuration];
+            throw new ArgumentOutOfRangeException(nameof(configuration),
+                $"Cannot find configuration in {nameof(Configs)}.");
+        }
+
+        private bool IsMyFlavorGuid(ref Guid guidFlavor)
+        {
+            return guidFlavor.Equals(typeof(SampSharpProjectFactory).GUID);
+        }
+
+        private void UpdateBuildStatus(bool status)
+        {
+            foreach (var callback in _callbacks.Values.ToArray())
+                callback.BuildEnd(status ? 1 : 0);
+        }
+
+        public static Project GetDteProject(IVsHierarchy hierarchy)
+        {
+            if (hierarchy == null)
+                throw new ArgumentNullException(nameof(hierarchy));
+
+            object obj;
+            hierarchy.GetProperty(VSITEMID_ROOT, (int) __VSHPROPID.VSHPROPID_ExtObject, out obj);
+            return obj as Project;
+        }
+
+        private Project GetDteProject()
+        {
+            return GetDteProject(_project);
+        }
+
+        #region Implementation of IPersistXMLFragment
 
         /// <summary>
         ///     Implement the InitNew method to initialize the project extension properties and other build-independent data. This
@@ -225,6 +435,10 @@ namespace SampSharp.VisualStudio.Projects
                 : S_OK;
         }
 
+        #endregion
+
+        #region Implementation of IVsBuildableProjectCfg
+
         public int get_ProjectCfg(out IVsProjectCfg ppIVsProjectCfg)
         {
             ppIVsProjectCfg = this;
@@ -246,135 +460,21 @@ namespace SampSharp.VisualStudio.Projects
 
         public int StartBuild(IVsOutputWindowPane outputPane, uint dwOptions)
         {
-            var dteProject = GetDteProject(_project);
-            var monoDirectory = this[SampSharpPropertyPage.MonoDirectory];
-            outputPane.Log($"Mono runtime path: {monoDirectory}.");
-            
-            var projectFolder = Path.GetDirectoryName(dteProject.FullName);
-
-            if (projectFolder == null)
-                throw new Exception("projectFolder is null");
-
-            var projectConfiguration = dteProject.ConfigurationManager.ActiveConfiguration;
-            var dir =
-                Path.GetDirectoryName(Path.Combine(projectFolder,
-                    projectConfiguration.Properties.Item("OutputPath").Value.ToString()));
-
-            if (dir == null)
-                throw new Exception("dir is null");
-
-            var fileName = dteProject.Properties.Item("OutputFileName").Value.ToString();
-            var outputFile = Path.Combine(dir, fileName);
-
-            if (string.IsNullOrWhiteSpace(monoDirectory) || !Directory.Exists(monoDirectory))
+            // Build the project.
+            if (!BuildProject(outputPane))
             {
-                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
-                    "Error: You must set up the mono runtime directory on the 'SampSharp' project property page.");
-                UpdateBuildStatus(0);
-                return S_FALSE;
+                UpdateBuildStatus(false);
+                return S_OK;
             }
 
-            // xbuild
-            var xbuidPath = Path.Combine(monoDirectory, @"lib\mono\4.5\xbuild.exe");
-            var monoPath = Path.Combine(monoDirectory, @"bin\mono.exe");
-            var pdb2mdbPath = Path.Combine(monoDirectory, @"lib\mono\4.5\pdb2mdb.exe");
+            // Convert the symbol files to a format mono can consume.
+            UpdateBuildStatus(ConvertSymbols(outputPane));
 
-            if (!File.Exists(xbuidPath))
-            {
-                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
-                    "Error: XBuild is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
-                UpdateBuildStatus(0);
-                return S_FALSE;
-            }
-
-            if (!File.Exists(monoPath))
-            {
-                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
-                    "Error: mono is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
-                UpdateBuildStatus(0);
-                return S_FALSE;
-            }
-
-            if (!File.Exists(pdb2mdbPath))
-            {
-                outputPane.Log(VsLogSeverity.Error, dteProject.UniqueName, dteProject.FullName,
-                    "Error: pdb2mdb is missing from the specified mono runtime directory. Are you sure you selected the right directory?");
-                UpdateBuildStatus(0);
-                return S_FALSE;
-            }
-
-            var projectFile = dteProject.FullName;
-            var projectDirectory = Path.GetDirectoryName(projectFile);
-
-            if (projectDirectory == null)
-                throw new Exception("projectDirectory is null");
-
-//            CompileProject(projectFile, dir);
-//
-//            return E_ABORT;
-
-            // XBuild the project.
-            var startInfo = new ProcessStartInfo
-            {
-                Arguments = "\"" + Path.GetFileName(projectFile) + "\"",
-                WorkingDirectory = projectDirectory,
-                CreateNoWindow = true,
-                FileName = xbuidPath,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            outputPane.Log("Starting XBuild with arguments: " + startInfo.Arguments);
-
-            var process = new Process { StartInfo = startInfo };
-            process.OutputDataReceived += (sender, args) => { outputPane.Log("O:" + args.Data); };
-            process.ErrorDataReceived += (sender, args) => { outputPane.Log("E:" + args.Data); };
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            process.WaitForExit();
-            
-            // Convert symbol files from .pdb to .mdb.
-            startInfo = new ProcessStartInfo
-            {
-                Arguments = "\"" + pdb2mdbPath + "\" \"" + outputFile + "\"",
-                WorkingDirectory = projectDirectory,
-                CreateNoWindow = true,
-                FileName = monoPath,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            outputPane.Log("Starting pdb2mdb with arguments: " + startInfo.Arguments);
-
-            process = new Process { StartInfo = startInfo };
-            process.OutputDataReceived += (sender, args) => { outputPane.Log("O:" + args.Data); };
-            process.ErrorDataReceived += (sender, args) => { outputPane.Log("E:" + args.Data); };
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            process.WaitForExit();
-
-            outputPane.Log("XBuild finished.");
-            
-            UpdateBuildStatus(1);
             return S_OK;
-        }
-
-
-        private static bool CompileProject(string projectFilePath, string outputDir)
-        {
-            throw new NotImplementedException();
         }
 
         public int StartClean(IVsOutputWindowPane outputPane, uint dwOptions)
         {
-//            var dteProject = GetDteProject(_project);
-//            var projectFolder = Path.GetDirectoryName(dteProject.FullName);
-//
-//            outputPane.Log($"Starting cleaning of {projectFolder}...");
             outputPane.Log("Cleaning is not implemented by the SampSharp Visual Studio extension."); //todo
 
             return S_OK;
@@ -421,6 +521,10 @@ namespace SampSharp.VisualStudio.Projects
             pfReady[0] = 1;
             return S_OK;
         }
+
+        #endregion
+
+        #region Implementation of IVsDebuggableProjectCfg
 
         public int get_DisplayName(out string pbstrDisplayName)
         {
@@ -502,6 +606,7 @@ namespace SampSharp.VisualStudio.Projects
             return _baseDebugConfiguration.get_RootURL(out pbstrRootUrl);
         }
 
+
         public int DebugLaunch(uint grfLaunch)
         {
             try
@@ -548,6 +653,10 @@ namespace SampSharp.VisualStudio.Projects
             pfCanLaunch = 1;
             return S_OK;
         }
+
+        #endregion
+
+        #region Implemention of IVsProjectFlavorCfg
 
         /// <summary>
         ///     Provides access to a configuration interfaces such as IVsBuildableProjectCfg2 or IVsDebuggableProjectCfg.
@@ -602,33 +711,6 @@ namespace SampSharp.VisualStudio.Projects
             return hr;
         }
 
-        internal static SampSharpFlavorConfig GetSampSharpFlavorCfgFromVsCfg(IVsCfg configuration)
-        {
-            if (Configs.ContainsKey(configuration))
-                return Configs[configuration];
-            throw new ArgumentOutOfRangeException(nameof(configuration),
-                $"Cannot find configuration in {nameof(Configs)}.");
-        }
-
-        private bool IsMyFlavorGuid(ref Guid guidFlavor)
-        {
-            return guidFlavor.Equals(typeof(SampSharpProjectFactory).GUID);
-        }
-
-        private void UpdateBuildStatus(int status)
-        {
-            foreach (var callback in _callbacks.Values.ToArray())
-                callback.BuildEnd(status);
-        }
-
-        public static Project GetDteProject(IVsHierarchy hierarchy)
-        {
-            if (hierarchy == null)
-                throw new ArgumentNullException(nameof(hierarchy));
-
-            object obj;
-            hierarchy.GetProperty(VSITEMID_ROOT, (int) __VSHPROPID.VSHPROPID_ExtObject, out obj);
-            return obj as Project;
-        }
+        #endregion
     }
 }
