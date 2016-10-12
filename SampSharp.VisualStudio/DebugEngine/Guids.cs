@@ -55,5 +55,10 @@ namespace SampSharp.VisualStudio.DebugEngine
         ///     The filter all locals and arguments GUID.
         /// </summary>
         public static Guid FilterAllLocalsPlusArgs = new Guid("939729a8-4cb0-4647-9831-7ff465240d5f");
+
+        /// <summary>
+        /// The server window GUID.
+        /// </summary>
+        public static Guid ServerWindow = new Guid("e7aa0b93-e5ff-4a46-80be-7a535fff2a53");
     }
 }

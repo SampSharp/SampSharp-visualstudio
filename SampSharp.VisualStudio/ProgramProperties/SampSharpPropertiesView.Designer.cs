@@ -32,11 +32,12 @@ namespace SampSharp.VisualStudio.ProgramProperties
         {
             this.label1 = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.gameModeTextBox = new System.Windows.Forms.TextBox();
+            this.label2 = new System.Windows.Forms.Label();
             this.browseRuntimeDirectoryButton = new System.Windows.Forms.Button();
             this.monoLocationTextBox = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
-            this.gameModeTextBox = new System.Windows.Forms.TextBox();
-            this.label2 = new System.Windows.Forms.Label();
+            this.noWindowCheckbox = new System.Windows.Forms.CheckBox();
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -51,6 +52,7 @@ namespace SampSharp.VisualStudio.ProgramProperties
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.noWindowCheckbox);
             this.groupBox1.Controls.Add(this.gameModeTextBox);
             this.groupBox1.Controls.Add(this.label2);
             this.groupBox1.Controls.Add(this.browseRuntimeDirectoryButton);
@@ -64,6 +66,23 @@ namespace SampSharp.VisualStudio.ProgramProperties
             this.groupBox1.TabIndex = 1;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "SampSharp";
+            // 
+            // gameModeTextBox
+            // 
+            this.gameModeTextBox.Location = new System.Drawing.Point(14, 98);
+            this.gameModeTextBox.Name = "gameModeTextBox";
+            this.gameModeTextBox.Size = new System.Drawing.Size(314, 20);
+            this.gameModeTextBox.TabIndex = 8;
+            this.gameModeTextBox.Text = "GameMode";
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(14, 82);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(118, 13);
+            this.label2.TabIndex = 7;
+            this.label2.Text = "Game Mode Entrypoint:";
             // 
             // browseRuntimeDirectoryButton
             // 
@@ -92,22 +111,15 @@ namespace SampSharp.VisualStudio.ProgramProperties
             this.label3.TabIndex = 2;
             this.label3.Text = "Mono Runtime Directory:";
             // 
-            // gameModeTextBox
+            // noWindowCheckbox
             // 
-            this.gameModeTextBox.Location = new System.Drawing.Point(14, 98);
-            this.gameModeTextBox.Name = "gameModeTextBox";
-            this.gameModeTextBox.Size = new System.Drawing.Size(314, 20);
-            this.gameModeTextBox.TabIndex = 8;
-            this.gameModeTextBox.Text = "GameMode";
-            // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(14, 82);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(118, 13);
-            this.label2.TabIndex = 7;
-            this.label2.Text = "Game Mode Entrypoint:";
+            this.noWindowCheckbox.AutoSize = true;
+            this.noWindowCheckbox.Location = new System.Drawing.Point(14, 124);
+            this.noWindowCheckbox.Name = "noWindowCheckbox";
+            this.noWindowCheckbox.Size = new System.Drawing.Size(150, 17);
+            this.noWindowCheckbox.TabIndex = 9;
+            this.noWindowCheckbox.Text = "Create No Server Window";
+            this.noWindowCheckbox.UseVisualStyleBackColor = true;
             // 
             // SampSharpPropertiesView
             // 
@@ -133,5 +145,6 @@ namespace SampSharp.VisualStudio.ProgramProperties
         private System.Windows.Forms.Button browseRuntimeDirectoryButton;
         private System.Windows.Forms.TextBox gameModeTextBox;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.CheckBox noWindowCheckbox;
     }
 }

@@ -32,6 +32,8 @@ namespace SampSharp.VisualStudio.DebugEngine
         public MonoCallback Callback { get; private set; }
         public DebuggedProgram Program { get; }
 
+        public IVsOutputWindowPane OutputWindow => _outputWindow;
+
         #region Implementation of IDebugSymbolSettings100
 
         /// <summary>
@@ -102,24 +104,7 @@ namespace SampSharp.VisualStudio.DebugEngine
 
             return documentName;
         }
-
-        /// <summary>
-        ///     Logs a message to the debugger, console and output window.
-        /// </summary>
-        /// <param name="message"></param>
-        public void Log(string message)
-        {
-            Debug.WriteLine(message);
-            Console.WriteLine(message);
-            _outputWindow.OutputString(message + "\r\n");
-        }
         
-        public void Log(VsLogSeverity severity, string project, string file,
-            string consoleMessage, int lineNumber = 0, int column = 0)
-        {
-            _outputWindow.Log(severity, project, file, consoleMessage, lineNumber, column);
-        }
-
         private void OnStartDebuggingFailed(Exception exception)
         {
             if (exception is OperationCanceledException)
@@ -153,14 +138,14 @@ namespace SampSharp.VisualStudio.DebugEngine
             try
             {
                 pendingBreakpoint = Program.CreatePendingBreakpoint(request);
+
+                return S_OK;
             }
             catch
             {
                 pendingBreakpoint = null;
                 return E_FAIL;
             }
-
-            return E_FAIL;
         }
 
         /// <summary>
@@ -653,7 +638,15 @@ namespace SampSharp.VisualStudio.DebugEngine
             Callback = new MonoCallback(callback, this);
             try
             {
-                Program.LaunchSuspended(port, args, options, exe, directory, out process);
+                var opt = options.Split(new[] { "|split|" }, StringSplitOptions.None);
+
+                if (opt.Length != 2)
+                    throw new Exception("Invalid launch options");
+
+                bool noWindow;
+                bool.TryParse(opt[1], out noWindow);
+
+                Program.LaunchSuspended(port, opt[0], noWindow, exe, directory, out process);
 
                 return S_OK;
             }

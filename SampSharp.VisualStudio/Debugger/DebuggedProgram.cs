@@ -4,8 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.VisualStudio.Debugger.Interop;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using Mono.Debugging.Client;
 using Mono.Debugging.Soft;
 using SampSharp.VisualStudio.DebugEngine;
@@ -14,19 +15,19 @@ using SampSharp.VisualStudio.DebugEngine.Events;
 using SampSharp.VisualStudio.ProgramProperties;
 using SampSharp.VisualStudio.Projects;
 using SampSharp.VisualStudio.Utils;
+using Task = System.Threading.Tasks.Task;
 
 namespace SampSharp.VisualStudio.Debugger
 {
     public class DebuggedProgram : IDisposable
     {
-        private const int DefaultDebuggerPort = 6438;
         private readonly MonoBreakpointManager _breakpointManager;
         private readonly MonoEngine _engine;
         private readonly MonoThreadManager _threadManager;
         private AD_PROCESS_ID _processId;
-
         private Guid _programId;
         private AutoResetEvent _waiter;
+        private IVsOutputWindowPane _serverPane;
 
         public DebuggedProgram(MonoEngine engine, MonoBreakpointManager breakpointManager,
             MonoThreadManager threadManager)
@@ -107,7 +108,12 @@ namespace SampSharp.VisualStudio.Debugger
             Session.Stop();
         }
 
-        public void LaunchSuspended(IDebugPort2 port, string args, string gameMode, string exe, string directory, out IDebugProcess2 process)
+        private void Log(string message)
+        {
+            _serverPane?.Log(message);
+        }
+
+        public void LaunchSuspended(IDebugPort2 port, string gameMode, bool noWindow, string exe, string directory, out IDebugProcess2 process)
         {
             _waiter = new AutoResetEvent(false);
             
@@ -121,18 +127,63 @@ namespace SampSharp.VisualStudio.Debugger
             // Run the server.
             Task.Run(() =>
             {
-                Process.Start(new ProcessStartInfo
+                if (noWindow)
                 {
-                    FileName = Path.Combine(ServerPath, "samp-server.exe"),
-                    WorkingDirectory = ServerPath,
-                    UseShellExecute = false,
-                    EnvironmentVariables =
+                    IVsOutputWindow outWindow = Package.GetGlobalService(typeof(SVsOutputWindow)) as IVsOutputWindow;
+
+                    Guid wndGuid = Guids.ServerWindow;
+                    outWindow.CreatePane(ref wndGuid, "SA-MP Server", 1, 1);
+
+                    outWindow.GetPane(ref wndGuid, out _serverPane);
+                    _serverPane.Clear();
+                    Log("Starting SA-MP server...");
+                    _serverPane.Activate();
+
+
+                    var startInfo = new ProcessStartInfo
                     {
-                        ["debugger_address"] = DebuggerAddress.ToString(),
-                        ["gamemode"] = $"{Path.GetFileNameWithoutExtension(exe)}:{gameMode}"
-                    }
-                });
-                
+                        FileName = Path.Combine(ServerPath, "samp-server.exe"),
+                        WorkingDirectory = ServerPath,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardError = true,
+                        RedirectStandardOutput = true,
+                        EnvironmentVariables =
+                        {
+                            ["debugger_address"] = DebuggerAddress.ToString(),
+                            ["gamemode"] = $"{Path.GetFileNameWithoutExtension(exe)}:{gameMode}"
+                        }
+                    };
+
+                    var server = new Process { StartInfo = startInfo };
+                    server.OutputDataReceived += (sender, args) =>
+                    {
+                        if (args.Data != null)
+                            Log($"{args.Data.Replace("\r", "")}");
+                    };
+                    server.ErrorDataReceived += (sender, args) =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(args.Data))
+                            Log($"ERROR: {args.Data}");
+                    };
+                    server.Start();
+                    server.BeginOutputReadLine();
+                    server.BeginErrorReadLine();
+                }
+                else
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = Path.Combine(ServerPath, "samp-server.exe"),
+                        WorkingDirectory = ServerPath,
+                        UseShellExecute = false,
+                        EnvironmentVariables =
+                        {
+                            ["debugger_address"] = DebuggerAddress.ToString(),
+                            ["gamemode"] = $"{Path.GetFileNameWithoutExtension(exe)}:{gameMode}"
+                        }
+                    });
+                }
                 // Trigger that the app is now running for whomever might be waiting for that signal
                 _waiter.Set();
             });
@@ -276,15 +327,10 @@ namespace SampSharp.VisualStudio.Debugger
 
         private void ComputeAvailableDebuggerAddress()
         {
-            var address = new DebuggerAddress(DefaultDebuggerPort);
-
-            if (!address.IsAvailable())
-                address = address.GetNextAvailable();
+            var address = DebuggerAddress.GetAvailable();
 
             if (address == null)
-            {
                 throw new DebuggerInitializeException("Debugger port is unavailable.");
-            }
 
             DebuggerAddress = address;
         }
@@ -298,34 +344,20 @@ namespace SampSharp.VisualStudio.Debugger
                 _threadManager.Add(activeThread, new MonoThread(_engine, activeThread));
             };
 
-            Session.ExceptionHandler = exception => true;
-            Session.TargetExited +=
-                (sender, x) =>
-                {
-                    _engine.Callback.Send(new SampSharpDestroyEvent((uint?)x.ExitCode ?? 0), SampSharpDestroyEvent.Iid, null);
-                };
-            Session.TargetUnhandledException += (sender, x) =>
+            Session.ExceptionHandler = e =>
             {
-                _engine.Log("Unhandled exception!" + x);
-            }; // todo
-            Session.TargetExceptionThrown += (sender, e) =>
-            {
-                _engine.Log("Exception: " + e);
+                Log($"DEBUGGER ERROR: {e}");
+                return true;
             };
-            Session.LogWriter = (stderr, text) => { };
-            Session.OutputWriter = (stderr, text) => { };
             Session.TargetThreadStarted +=
                 (sender, x) => { _threadManager.Add(x.Thread, new MonoThread(_engine, x.Thread)); };
             Session.TargetThreadStopped += (sender, x) => { _threadManager.Remove(x.Thread); };
-            Session.TargetStopped += (sender, x) => { };
-            Session.TargetStarted += (sender, x) => { };
-            Session.TargetSignaled += (sender, x) => { };
-            Session.TargetInterrupted += (sender, x) => { };
-            Session.TargetExceptionThrown += (sender, x) =>
+            Session.TargetExited += (sender, x) => _engine.Callback.Send(new SampSharpDestroyEvent((uint?)x.ExitCode ?? 0), SampSharpDestroyEvent.Iid, null);
+            Session.TargetExceptionThrown += (sender, args) =>
             {
                 _engine.Callback.Send(
                     new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])),
-                    MonoStepCompleteEvent.Iid, _threadManager[x.Thread]);
+                    MonoStepCompleteEvent.Iid, _threadManager[args.Thread]);
             };
             Session.TargetHitBreakpoint += (sender, x) =>
             {

@@ -37,11 +37,13 @@ namespace SampSharp.VisualStudio.Projects
 
         private readonly SampSharpProjectFlavor _project;
         private readonly IVsProjectCfg _projectConfig;
+
         private readonly Dictionary<string, string> _propertiesList = new Dictionary<string, string>();
 
         private uint _callbackCookieCounter;
         private bool _isClosed;
-        private bool _isDirty;
+        private bool _isProjectDirty;
+        private bool _isUserDirty;
 
         public SampSharpFlavorConfig(SampSharpProjectFlavor project, IVsCfg baseProjectConfig,
             IVsProjectFlavorCfg innerProjectFlavorConfig)
@@ -69,38 +71,77 @@ namespace SampSharp.VisualStudio.Projects
         /// <summary>
         ///     Get or set a property value.
         /// </summary>
-        public string this[string propertyName]
+        public string this[string key]
         {
             get
             {
-                var value = _propertiesList.ContainsKey(propertyName) ? _propertiesList[propertyName] : "";
+                string value;
+                _propertiesList.TryGetValue(key, out value);
 
                 if (string.IsNullOrEmpty(value))
-                    switch (propertyName)
+                    switch (key)
                     {
                         case SampSharpPropertyPage.MonoDirectory:
                             return @"..\..\env\mono";
                         case SampSharpPropertyPage.GameMode:
                             return "GameMode";
+                        case SampSharpPropertyPage.NoWindow:
+                            return "False";
                     }
-                return value;
+
+                return value ?? string.Empty;
             }
             set
             {
                 // Don't do anything if there isn't any real change
-                if (this[propertyName] == value)
+                if (this[key] == value)
                     return;
 
-                _isDirty = true;
-                if (_propertiesList.ContainsKey(propertyName))
-                    _propertiesList.Remove(propertyName);
-                _propertiesList.Add(propertyName, value);
+                if (SampSharpPropertyPage.ProjectKeys.Contains(key))
+                    _isProjectDirty = true;
+                if (SampSharpPropertyPage.UserKeys.Contains(key))
+                    _isUserDirty = true;
+
+                _propertiesList[key] = value;
             }
         }
         
         private static string MakeAbsolutePath(string path, string root)
         {
             return Path.IsPathRooted(path) ? path : Path.Combine(root, path);
+        }
+
+        public bool CleanProject(IVsOutputWindowPane outputPanel) {
+            var dteProject = GetDteProject();
+            var projectPath = dteProject.FullName;
+
+            // Compute solution path by removing the unique name of the project from the project path.
+            var solutionPath = string.Empty;
+
+            if (dteProject.FullName.EndsWith(dteProject.UniqueName))
+                solutionPath = dteProject.FullName.Substring(0,
+                    dteProject.FullName.Length - dteProject.UniqueName.Length);
+
+            // Expecting no build running... But somehow a build is running, just end it and then start our own.
+            try {
+                BuildManager.DefaultBuildManager.EndBuild();
+            }
+            catch {
+
+            }
+
+            var logger = new AccumulatingLogger(solutionPath);
+
+            // Build the project.
+            var project = ProjectCollection.GlobalProjectCollection
+                .LoadProject(projectPath);
+
+            var result = project.Build("Clean", new[] { logger });
+            
+            // Output accumulated log messages.
+            logger.Flush(outputPanel);
+
+            return result;
         }
 
         public bool BuildProject(IVsOutputWindowPane outputPanel)
@@ -122,7 +163,14 @@ namespace SampSharp.VisualStudio.Projects
                     dteProject.FullName.Length - dteProject.UniqueName.Length);
 
             // Expecting no build running... But somehow a build is running, just end it and then start our own.
-            BuildManager.DefaultBuildManager.EndBuild();
+            try
+            {
+                BuildManager.DefaultBuildManager.EndBuild();
+            }
+            catch
+            {
+                
+            }
 
             var logger = new AccumulatingLogger(solutionPath);
 
@@ -150,7 +198,14 @@ namespace SampSharp.VisualStudio.Projects
 
                 var toPath = Path.Combine(outputDirectory, Path.GetFileName(fromPath));
 
-                File.Copy(fromPath, toPath, true);
+                try
+                {
+                    File.Copy(fromPath, toPath, true);
+                }
+                catch(Exception e)
+                {
+                    throw new Exception("Could not copy reference. File is likely in use. (Server already running?)", e);
+                }
             }
 
             // Output accumulated log messages.
@@ -343,11 +398,13 @@ namespace SampSharp.VisualStudio.Projects
             {
                 // Specifies storage file type to project file.
                 case (uint) _PersistStorageType.PST_PROJECT_FILE:
-                    if (_isDirty)
+                    if (_isProjectDirty)
                         pfDirty |= 1;
                     break;
                 // Specifies storage file type to user file.
                 case (uint) _PersistStorageType.PST_USER_FILE:
+                    if (_isUserDirty)
+                        pfDirty |= 1;
                     // Do not store anything in the user file.
                     break;
             }
@@ -374,8 +431,7 @@ namespace SampSharp.VisualStudio.Projects
                 switch (storage)
                 {
                     case (uint) _PersistStorageType.PST_PROJECT_FILE:
-                        break;
-                    case (uint) _PersistStorageType.PST_USER_FILE:
+                    {
                         var doc = new XmlDocument();
                         var node = doc.CreateElement(GetType().Name);
                         node.InnerXml = pszXmlFragment;
@@ -383,6 +439,17 @@ namespace SampSharp.VisualStudio.Projects
                             foreach (XmlNode child in node.FirstChild.ChildNodes)
                                 _propertiesList.Add(child.Name, child.InnerText);
                         break;
+                    }
+                    case (uint) _PersistStorageType.PST_USER_FILE:
+                    {
+                        var doc = new XmlDocument();
+                        var node = doc.CreateElement(GetType().Name);
+                        node.InnerXml = pszXmlFragment;
+                        if (node.FirstChild != null)
+                            foreach (XmlNode child in node.FirstChild.ChildNodes)
+                                _propertiesList.Add(child.Name, child.InnerText);
+                        break;
+                    }
                 }
 
             // Forward the call to inner flavor(s)
@@ -411,15 +478,14 @@ namespace SampSharp.VisualStudio.Projects
                 switch (storage)
                 {
                     case (uint) _PersistStorageType.PST_PROJECT_FILE:
-                        break;
-                    case (uint) _PersistStorageType.PST_USER_FILE:
+                    {
                         var doc = new XmlDocument();
                         var root = doc.CreateElement(GetType().Name);
 
-                        foreach (var property in _propertiesList)
+                        foreach (var key in SampSharpPropertyPage.ProjectKeys)
                         {
-                            XmlNode node = doc.CreateElement(property.Key);
-                            node.AppendChild(doc.CreateTextNode(property.Value));
+                            XmlNode node = doc.CreateElement(key);
+                            node.AppendChild(doc.CreateTextNode(this[key]));
                             root.AppendChild(node);
                         }
 
@@ -429,8 +495,30 @@ namespace SampSharp.VisualStudio.Projects
                         pbstrXmlFragment = doc.InnerXml;
 
                         if (fClearDirty != 0)
-                            _isDirty = false;
+                            _isProjectDirty = false;
                         break;
+                    }
+                    case (uint)_PersistStorageType.PST_USER_FILE:
+                    {
+                        var doc = new XmlDocument();
+                        var root = doc.CreateElement(GetType().Name);
+
+                        foreach (var key in SampSharpPropertyPage.UserKeys)
+                        {
+                            XmlNode node = doc.CreateElement(key);
+                            node.AppendChild(doc.CreateTextNode(this[key]));
+                            root.AppendChild(node);
+                        }
+
+                        doc.AppendChild(root);
+
+                        // Get XML fragment representing our data
+                        pbstrXmlFragment = doc.InnerXml;
+
+                        if (fClearDirty != 0)
+                            _isUserDirty = false;
+                        break;
+                    }
                 }
 
             // Forward the call to inner flavor(s)
@@ -480,7 +568,7 @@ namespace SampSharp.VisualStudio.Projects
 
         public int StartClean(IVsOutputWindowPane outputPane, uint dwOptions)
         {
-            outputPane.Log("Cleaning is not implemented by the SampSharp Visual Studio extension."); //todo
+            UpdateBuildStatus(CleanProject(outputPane));
 
             return S_OK;
         }
@@ -641,7 +729,7 @@ namespace SampSharp.VisualStudio.Projects
                 debugTargets[0].dlo = (uint) DEBUG_LAUNCH_OPERATION.DLO_CreateProcess;
                 debugTargets[0].bstrExe = outputFile;
                 debugTargets[0].guidLaunchDebugEngine = Guids.EngineIdGuid;
-                debugTargets[0].bstrOptions = this[SampSharpPropertyPage.GameMode];
+                debugTargets[0].bstrOptions = $"{this[SampSharpPropertyPage.GameMode]}|split|{this[SampSharpPropertyPage.NoWindow]}";
 
                 var processInfo = new VsDebugTargetProcessInfo[debugTargets.Length];
                 debugger.LaunchDebugTargets4(1, debugTargets, processInfo);

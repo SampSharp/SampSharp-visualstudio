@@ -52,6 +52,7 @@ namespace SampSharp.VisualStudio.ProgramProperties
                     // Add two Property Name / Control KeyValuePairs. 
                     _propertyControlTable.Add(SampSharpPropertyPage.MonoDirectory, monoLocationTextBox);
                     _propertyControlTable.Add(SampSharpPropertyPage.GameMode, gameModeTextBox);
+                    _propertyControlTable.Add(SampSharpPropertyPage.NoWindow, noWindowCheckbox);
                 }
                 return _propertyControlTable;
             }

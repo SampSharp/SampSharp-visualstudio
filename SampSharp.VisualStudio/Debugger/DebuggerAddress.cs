@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 namespace SampSharp.VisualStudio.Debugger
 {
@@ -31,31 +32,18 @@ namespace SampSharp.VisualStudio.Debugger
             return $"{Ip}:{Port}";
         }
 
-        public bool IsAvailable()
+        public static DebuggerAddress GetAvailable()
         {
-            var ipGlobalProperties = IPGlobalProperties.GetIPGlobalProperties();
-            var tcpConnInfoArray = ipGlobalProperties.GetActiveTcpConnections();
-
-            return tcpConnInfoArray.All(tcpi => tcpi.LocalEndPoint.Port != Port);
+            return new DebuggerAddress(LocalIp, (ushort) FreeTcpPort());
         }
 
-        public DebuggerAddress GetNextAvailable()
+        private static int FreeTcpPort()
         {
-            if (!Ip.Equals(LocalIp))
-                return null;
-
-            int port = Port;
-            port++;
-
-            if (port > ushort.MaxValue)
-                return null;
-
-            var addr = new DebuggerAddress(LocalIp, (ushort) port);
-
-            while (addr != null && !addr.IsAvailable())
-                addr = addr.GetNextAvailable();
-
-            return addr;
+            var l = new TcpListener(IPAddress.Loopback, 0);
+            l.Start();
+            var port = ((IPEndPoint) l.LocalEndpoint).Port;
+            l.Stop();
+            return port;
         }
 
         public static bool TryParse(string s, out DebuggerAddress result)

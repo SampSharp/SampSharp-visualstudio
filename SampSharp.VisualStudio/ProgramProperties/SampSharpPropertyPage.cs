@@ -8,6 +8,17 @@ namespace SampSharp.VisualStudio.ProgramProperties
     {
         public const string MonoDirectory = "MonoDirectory";
         public const string GameMode = "GameMode";
+        public const string NoWindow = "NoWindow";
+
+        public static readonly string[] ProjectKeys =
+        {
+            GameMode
+        };
+        public static readonly string[] UserKeys =
+        {
+            MonoDirectory,
+            NoWindow
+        };
 
         protected override string HelpKeyword => string.Empty;
         public override string Title => "SampSharp";
