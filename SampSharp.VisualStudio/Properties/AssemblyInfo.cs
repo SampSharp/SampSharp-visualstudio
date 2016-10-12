@@ -7,12 +7,12 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 
 [assembly: AssemblyTitle("SampSharp.VisualStudio")]
-[assembly: AssemblyDescription("A plugin for building and debugging SampSharp GameModes.")]
+[assembly: AssemblyDescription("A plugin for building and debugging SampSharp game modes.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Tim Potze")]
 [assembly: AssemblyProduct("SampSharp.VisualStudio")]
 [assembly: AssemblyCopyright("Tim Potze")]
-[assembly: AssemblyTrademark("EAE08EAE-5702-49B4-ABD0-886FCEE47C2C")]
+[assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
@@ -32,6 +32,6 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
 
-[assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.1.0.0")]
+[assembly: AssemblyVersion("0.2.0.0")]
+[assembly: AssemblyFileVersion("0.2.0.0")]
 [assembly: NeutralResourcesLanguage("en-US")]
