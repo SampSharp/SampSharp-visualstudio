@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("MonoProgram.Template")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("SampSharp.VisualStudio.Template")]
+[assembly: AssemblyDescription("Template for SampSharp game modes")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Kirk Woll")]
-[assembly: AssemblyProduct("MonoProgram.Template")]
-[assembly: AssemblyCopyright("Copyright © Kirk Woll 2016")]
+[assembly: AssemblyCompany("Tim Potze")]
+[assembly: AssemblyProduct("SampSharp.VisualStudio.Template")]
+[assembly: AssemblyCopyright("Copyright ©Tim Potze 2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

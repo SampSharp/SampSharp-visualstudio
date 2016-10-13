@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="SampSharpVisualStudio" Version="0.2.0" Language="en-US" Publisher="Tim Potze (ikkentim)" />
-        <DisplayName>SampSharpVisualStudioPlugin</DisplayName>
+        <Identity Id="SampSharp.VisualStudio" Version="0.2.1" Language="en-US" Publisher="Tim Potze (ikkentim)" />
+        <DisplayName>SampSharp Plugin</DisplayName>
         <Description xml:space="preserve">A plugin that allows you to build and debug SampSharp projects.</Description>
         <MoreInfo>https://github.com/ikkentim/sampsharp-visualstudio</MoreInfo>
         <License>LICENSE.txt</License>
