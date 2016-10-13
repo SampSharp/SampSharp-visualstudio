@@ -10,4 +10,4 @@ in the first `<PropertyGroup>` block.
 
 Installation
 ------------
-You can install this Visual Studio trough Visual Studio's Extensions manager ( `Tools > Extensions and Updates...` ). It's listed under the name `SampSharpVisualStudioPlugin`.
+You can install this Visual Studio trough Visual Studio's Extensions manager ( `Tools > Extensions and Updates...` ). It's listed under the name `SampSharp Plugin`.
