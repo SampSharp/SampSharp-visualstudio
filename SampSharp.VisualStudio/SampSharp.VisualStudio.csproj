@@ -281,6 +281,10 @@
     <Reference Include="Mono.Debugging.Soft">
       <HintPath>..\deps\Mono.Debugging.Soft.dll</HintPath>
     </Reference>
+    <Reference Include="Mono.Posix, Version=2.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\deps\Mono.Posix.dll</HintPath>
+    </Reference>
     <Reference Include="stdole, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
