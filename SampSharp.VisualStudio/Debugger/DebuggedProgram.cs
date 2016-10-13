@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 using Microsoft.VisualStudio.Debugger.Interop;
 using Microsoft.VisualStudio.Shell;
@@ -97,12 +98,24 @@ namespace SampSharp.VisualStudio.Debugger
             {
                 Session.TargetStopped -= stepFinished;
 
+                // Skip anything for which source is unavailable
+                // TODO: This gets the debugger stuck in a pause state
+//                if (!ThreadContainsKnownCode(args.Thread))
+//                {
+//                    _engine.Callback.Send(
+//                        new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])),
+//                        MonoStepCompleteEvent.Iid, null);
+//                    Continue();
+//                    return;
+//                }
+
                 var thread = _threadManager[args.Thread] ?? _threadManager.All.First();
 
-                _engine.Callback.Send(new MonoBreakpointEvent(
-                        new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])),
+                _engine.Callback.Send(
+                    new MonoBreakpointEvent(new MonoBoundBreakpointsEnumerator(new IDebugBoundBreakpoint2[0])),
                     MonoStepCompleteEvent.Iid, thread);
             };
+
             Session.TargetStopped += stepFinished;
 
             Session.Stop();
@@ -229,6 +242,30 @@ namespace SampSharp.VisualStudio.Debugger
             Session.Dispose();
         }
 
+        private bool CurrentFrameContainsKnownCode(ThreadInfo thread)
+        {
+            return thread.Backtrace.FrameCount > 0 && File.Exists(thread.Backtrace.GetFrame(0).SourceLocation.FileName);
+        }
+
+        private bool ThreadContainsKnownCode(ThreadInfo thread)
+        {
+            if (thread.Backtrace.FrameCount == 0)
+            {
+                return false;
+            }
+
+            if (!CurrentFrameContainsKnownCode(thread))
+            {
+                for (var i = 1; i < thread.Backtrace.FrameCount; i++)
+                    if (File.Exists(thread.Backtrace.GetFrame(0).SourceLocation.FileName))
+                        return true;
+
+                return false;
+            }
+
+            return true;
+        }
+
         public bool Step(enum_STEPKIND kind, enum_STEPUNIT unit)
         {
             if (kind == enum_STEPKIND.STEP_BACKWARDS)
@@ -238,7 +275,22 @@ namespace SampSharp.VisualStudio.Debugger
             stepFinished = (sender, args) =>
             {
                 Session.TargetStopped -= stepFinished;
-                _engine.Callback.Send(new MonoStepCompleteEvent(), MonoStepCompleteEvent.Iid, _threadManager[args.Thread]);
+
+                // Skip anything for which source is unavailable
+                if (!CurrentFrameContainsKnownCode(args.Thread))
+                {
+                    if (ThreadContainsKnownCode(args.Thread))
+                    {
+                        Step(kind, unit);
+                        return;
+                    }
+
+                    Continue();
+                    return;
+                }
+
+                _engine.Callback.Send(new MonoStepCompleteEvent(), MonoStepCompleteEvent.Iid,
+                    _threadManager[args.Thread]);
             };
             Session.TargetStopped += stepFinished;
 
@@ -361,7 +413,9 @@ namespace SampSharp.VisualStudio.Debugger
             };
             Session.TargetHitBreakpoint += (sender, x) =>
             {
+                
                 var breakpoint = x.BreakEvent as Breakpoint;
+                
                 var pendingBreakpoint = _breakpointManager[breakpoint];
                 if (pendingBreakpoint != null)
                     _engine.Callback.Send(
